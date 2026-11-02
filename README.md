@@ -63,3 +63,25 @@ python3 -m http.server 3000   # then visit http://localhost:3000
   share them at: [https://forms.gle/5zySDBpFBDyY6dar8](https://forms.gle/5zySDBpFBDyY6dar8)
   Every user's input helps shape the project and makes Trainer4U better for the
   community.
+
+## Project Initialization
+
+Trainer4U is a client-side-only application that runs entirely in the browser.
+Upon loading `index.html`:
+
+1. **Database loading** — The app reads saved data from `localStorage` under the key `trainer4u_db_v2`. If no data exists, an empty database `{profiles: {}}` is used.
+
+2. **Demo profile seeding** — A demo profile (`username: demo`, password: `demo1234`) is automatically created with four weeks of sample weight, workout, food, sleep and wellness data. This ensures the coaching engine has immediate data to work with. The demo profile is stored under the key `demo`.
+
+3. **Session check** — The app checks if a session exists in `localStorage` under the key `trainer4u_session_v2`. If a saved profile is found for that session, the user is logged in automatically and their profile data is restored.
+
+4. **Entry points**:
+   - If the user is **not signed in**, the **auth screen** (`renderAuth()`) is shown, where they can log in or sign up.
+   - If the user **is signed in but not onboarded**, the **onboarding screen** (`renderOnboarding()`) appears, asking for personal details (name, age, sex, height, weight, goal, diet, allergies, injuries, training days).
+   - If the user **is signed in and onboarded**, the **main app** (`renderApp()`) is displayed with the dashboard, trainer, chef, and other sections.
+
+5. **Theme application** — The `applyTheme()` function is called during init and whenever the user toggles light/dark mode via the settings menu or the `html[data-theme]` attribute.
+
+6. **Persistent storage** — All user data (profiles, logs, settings) is saved in `localStorage` and persists across browser sessions. Clearing site data will lose all progress — users are encouraged to use **Settings → Export** for backups.
+
+---

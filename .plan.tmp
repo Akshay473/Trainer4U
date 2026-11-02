@@ -1,0 +1,227 @@
+/* Workout plan generation ------------------------------------------------ */
+const WEEKDAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+const WEEK_ASSIGN = {
+  1: [2],
+  2: [0, 3],
+  3: [0, 2, 4],
+  4: [0, 1, 3, 4],
+  5: [0, 1, 2, 4, 5],
+  6: [0, 1, 2, 3, 4, 5],
+  7: [0, 1, 2, 3, 4, 5, 6]
+};
+
+// Injury-aware filtering. These are conservative movement swaps, not medical
+// advice: the app removes exercises that commonly aggravate the area named.
+const INJURY_RULES = [
+  {
+    words: ['back', 'lumbar', 'spine', 'disc', 'sciatica'],
+    avoid: ['barbell deadlift', 'romanian deadlift', 'barbell row', 'kettlebell swing', 'good morning', 'bent-over']
+  },
+  {
+    words: ['knee', 'patella', 'acl', 'meniscus'],
+    avoid: ['barbell back squat', 'leg press', 'walking lunge', 'bulgarian split squat', 'reverse lunge', 'smith machine squat', 'wall sit']
+  },
+  {
+    words: ['shoulder', 'rotator', 'deltoid'],
+    avoid: ['overhead press', 'shoulder press', 'pike push-up', 'lateral raise', 'triceps dip', 'pull-up', 'chin-up', 'upright row']
+  },
+  {
+    words: ['wrist', 'carpal'],
+    avoid: ['push-up', 'incline push-up', 'bench press', 'floor press', 'plank', 'triceps dip']
+  },
+  {
+    words: ['ankle', 'achilles', 'foot', 'plantar'],
+    avoid: ['calf raise', 'walking lunge', 'reverse lunge', 'bulgarian split squat', 'step-up']
+  },
+  {
+    words: ['elbow', 'tendinitis', 'tendonitis'],
+    avoid: ['dumbbell curl', 'hammer curl', 'band curl', 'preacher curl', 'overhead triceps extension', 'triceps dip', 'skull crusher']
+  },
+  {
+    words: ['hip', 'groin'],
+    avoid: ['bulgarian split squat', 'walking lunge', 'reverse lunge', 'barbell back squat', 'leg press', 'hip abduction']
+  }
+];
+
+function injuryAvoids(exercise, injuries) {
+  const text = String(injuries || '').toLowerCase();
+  if (!text.trim()) return false;
+  const name = exercise.name.toLowerCase();
+  return INJURY_RULES.some(rule =>
+    rule.words.some(word => text.includes(word)) &&
+    rule.avoid.some(fragment => name.includes(fragment))
+  );
+}
+
+function planMode() {
+  return state.trainerMode === 'home' ? 'home' : 'gym';
+}
+
+function hasEquipment(exercise, profile, mode) {
+  if (mode === 'gym') return true; // the gym plan assumes a standard gym floor
+  if (exercise.equip.includes('bodyweight')) return true;
+  const owned = profile.equipment || [];
+  return exercise.equip.some(tag =>
+    (tag === 'dumbbells' || tag === 'bands' || tag === 'kettlebell') && owned.includes(tag)
+  );
+}
+
+function equipmentScore(exercise, mode) {
+  if (mode === 'gym') {
+    if (exercise.equip.includes('gym')) return 4;
+    if (exercise.equip.includes('barbell')) return 3;
+    if (exercise.equip.includes('dumbbells') || exercise.equip.includes('kettlebell')) return 2;
+    return 1;
+  }
+  if (exercise.equip.includes('bodyweight')) return 4;
+  if (exercise.equip.includes('bands')) return 3;
+  return 2;
+}
+
+function repRangeFor(goal) {
+  if (goal === 'lose') return '12–15';
+  if (goal === 'maintain') return '10–12';
+  return '8–12';
+}
+// Isometric holds are prescribed in seconds rather than reps.
+const HOLD_EXERCISES = new Set(['Plank', 'Side plank', 'Wall sit']);
+
+function planTemplates(days) {
+  const full = { focus: 'Full body', slots: ['squat', 'pushH', 'pullH', 'hinge', 'pushV', 'core'], max: 6 };
+  const upper = { focus: 'Upper body', slots: ['pushH', 'pullH', 'pushV', 'pullV', 'lateral', 'biceps', 'triceps', 'core'], max: 7 };
+  const lower = { focus: 'Lower body', slots: ['squat', 'hinge', 'lunge', 'glutes', 'calves', 'core'], max: 6 };
+  const push = { focus: 'Chest, shoulders & triceps', slots: ['pushH', 'pushV', 'lateral', 'triceps', 'core'], max: 5 };
+  const pull = { focus: 'Back, rear shoulders & biceps', slots: ['pullH', 'pullV', 'rear', 'biceps', 'core'], max: 5 };
+  const legs = { focus: 'Legs & glutes', slots: ['squat', 'hinge', 'lunge', 'glutes', 'calves', 'core'], max: 6 };
+
+  if (days === 1) return [{ ...full, label: 'Full Body' }];
+  if (days === 2) return [
+    { ...upper, label: 'Upper Body' },
+    { ...lower, label: 'Lower Body' }
+  ];
+  if (days === 3) return [
+    { ...push, label: 'Push' },
+    { ...pull, label: 'Pull' },
+    { ...legs, label: 'Legs' }
+  ];
+  if (days === 4) return [
+    { ...upper, label: 'Upper A' },
+    { ...lower, label: 'Lower A' },
+    { ...upper, label: 'Upper B' },
+    { ...lower, label: 'Lower B' }
+  ];
+  if (days === 5) return [
+    { ...push, label: 'Push' },
+    { ...pull, label: 'Pull' },
+    { ...legs, label: 'Legs' },
+    { ...upper, label: 'Upper' },
+    { ...lower, label: 'Lower' }
+  ];
+  if (days === 6) return [
+    { ...push, label: 'Push A' },
+    { ...pull, label: 'Pull A' },
+    { ...legs, label: 'Legs A' },
+    { ...push, label: 'Push B' },
+    { ...pull, label: 'Pull B' },
+    { ...legs, label: 'Legs B' }
+  ];
+  return [
+    { ...push, label: 'Push A' },
+    { ...pull, label: 'Pull A' },
+    { ...legs, label: 'Legs A' },
+    { ...upper, label: 'Upper' },
+    { ...lower, label: 'Lower' },
+    { ...full, label: 'Full Body' },
+    { recovery: true, label: 'Active Recovery', focus: 'Mobility, walking & breathing', slots: [], max: 0 }
+  ];
+}
+
+function chooseExercises(template, user, variant, adjustments, mode) {
+  const p = user.profile;
+  const sets = clamp((p.experience === 'beginner' ? 3 : 4) + adjustments.sets, 2, 5);
+  const reps = repRangeFor(p.goal);
+  const rest = p.goal === 'lose' ? 45 : p.goal === 'maintain' ? 60 : 90;
+  const picks = [];
+
+  template.slots.forEach(slot => {
+    const options = EXERCISES
+      .filter(ex => ex.slots.includes(slot))
+      .filter(ex => hasEquipment(ex, p, mode))
+      .filter(ex => !injuryAvoids(ex, p.injuries))
+      .sort((a, b) => equipmentScore(b, mode) - equipmentScore(a, mode));
+
+    if (!options.length) return;
+    let exercise = options[variant % options.length];
+    if (picks.some(pick => pick.name === exercise.name)) {
+      exercise = options[(variant + 1) % options.length];
+    }
+    if (picks.some(pick => pick.name === exercise.name)) return;
+    picks.push({
+      name: exercise.name,
+      sets,
+      rest,
+      cues: exercise.cues,
+      reps: HOLD_EXERCISES.has(exercise.name) ? '30–45 sec' : reps
+    });
+  });
+
+  return picks.slice(0, template.max);
+}
+
+function recoveryExercises() {
+  return [
+    { name: 'Easy walk', sets: 1, reps: '15–20 min', rest: 0, cues: 'Keep a conversational pace. The goal is blood flow, not a calorie burn.' },
+    { name: 'Cat-cow', sets: 2, reps: '8–10 slow reps', rest: 20, cues: 'Move your spine gently through flexion and extension without forcing the range.' },
+    { name: 'Hip flexor stretch', sets: 2, reps: '30 sec each side', rest: 15, cues: 'Tuck your pelvis slightly and keep your ribs down; you should feel the front of the hip, not the lower back.' },
+    { name: 'Thoracic rotation', sets: 2, reps: '8 each side', rest: 15, cues: 'Sit or kneel tall, rotate through the upper back and follow your hand with your eyes.' },
+    { name: 'Box breathing', sets: 1, reps: '2–3 min', rest: 0, cues: 'Inhale for four, hold for four, exhale for four, hold for four. Keep the shoulders relaxed.' }
+  ];
+}
+
+function buildPlan(user) {
+  const p = user.profile;
+  const mode = planMode();
+  const insights = getInsights(user);
+  const requested = clamp(Number(p.daysPerWeek) || 3, 1, 7);
+  const days = clamp(requested + insights.adjustments.days, 1, 7);
+  const templates = planTemplates(days);
+  const assignment = WEEK_ASSIGN[days] || WEEK_ASSIGN[3];
+  const schedule = WEEKDAY_NAMES.map((name, index) => ({
+    weekday: index, weekdayName: name, rest: true, recovery: false,
+    label: 'Rest & recover', focus: '', exercises: [], finisher: ''
+  }));
+
+  assignment.forEach((weekday, index) => {
+    const template = templates[index];
+    if (template.recovery) {
+      schedule[weekday] = {
+        weekday,
+        weekdayName: WEEKDAY_NAMES[weekday],
+        rest: false,
+        recovery: true,
+        label: template.label,
+        focus: template.focus,
+        exercises: recoveryExercises(),
+        finisher: 'A short easy walk later in the day is optional.'
+      };
+      return;
+    }
+    schedule[weekday] = {
+      weekday,
+      weekdayName: WEEKDAY_NAMES[weekday],
+      rest: false,
+      recovery: false,
+      label: template.label,
+      focus: template.focus,
+      exercises: chooseExercises(template, user, index, insights.adjustments, mode),
+      finisher: p.goal === 'lose'
+        ? '10 min brisk walk or easy bike'
+        : p.goal === 'maintain'
+          ? '5 min easy cool-down walk'
+          : '5 min easy walk to finish'
+    };
+  });
+
+  const trainingDays = templates.filter(template => !template.recovery).length;
+  return { days, trainingDays, schedule, adjustments: insights.adjustments, mode, injuries: p.injuries || '' };
+}

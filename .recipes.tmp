@@ -1,0 +1,1105 @@
+const RECIPES = [
+  {
+    name: 'Masala Omelette', cuisine: 'Indian', meal: 'Tiffin',
+    diets: ['nonveg', 'eggetarian'], allergens: ['eggs', 'dairy'],
+    cal: 320, p: 22, c: 8, f: 22, time: 12,
+    ingredients: [
+      { name: 'Eggs', qty: '3' }, { name: 'Onion', qty: '1/2, chopped' },
+      { name: 'Tomato', qty: '1, chopped' }, { name: 'Green chilli', qty: '1, optional' },
+      { name: 'Butter', qty: '1 tsp' }
+    ],
+    steps: [
+      'Whisk the eggs with a pinch of salt, turmeric and chilli powder.',
+      'Soften the onion, tomato and green chilli in a non-stick pan.',
+      'Pour in the eggs, lower the heat and cook until the base sets.',
+      'Fold the omelette in half and slide it onto a plate.'
+    ]
+  },
+  {
+    name: 'Paneer Bhurji', cuisine: 'Indian', meal: 'Tiffin',
+    diets: ['nonveg', 'eggetarian', 'vegetarian'], allergens: ['dairy'],
+    cal: 380, p: 24, c: 12, f: 26, time: 15,
+    ingredients: [
+      { name: 'Paneer', qty: '150 g, crumbled' }, { name: 'Onion', qty: '1/2' },
+      { name: 'Tomato', qty: '1' }, { name: 'Green peas', qty: '60 g' },
+      { name: 'Olive oil', qty: '1 tsp' }
+    ],
+    steps: [
+      'Heat the oil and soften the onion with cumin seeds.',
+      'Add tomato, peas and a pinch of turmeric; cook for 3–4 minutes.',
+      'Fold in the crumbled paneer and warm through without over-cooking.',
+      'Finish with coriander and serve with a slice of wholegrain toast.'
+    ]
+  },
+  {
+    name: 'Chicken Tikka Bowl', cuisine: 'Indian', meal: 'Dinner',
+    diets: ['nonveg'], allergens: ['dairy'],
+    cal: 520, p: 46, c: 48, f: 16, time: 30,
+    ingredients: [
+      { name: 'Chicken breast', qty: '180 g, cubed' }, { name: 'Greek yogurt', qty: '50 g' },
+      { name: 'Cooked basmati rice', qty: '150 g' }, { name: 'Cucumber & tomato', qty: '1 cup' },
+      { name: 'Tikka spice mix', qty: '1 tbsp' }
+    ],
+    steps: [
+      'Mix the yogurt, tikka spices and a pinch of salt, then coat the chicken.',
+      'Rest for 10 minutes while you chop the salad.',
+      'Pan-sear or grill the chicken for 8–10 minutes, turning once.',
+      'Build a bowl with rice, salad and the hot chicken; add lemon juice.'
+    ]
+  },
+  {
+    name: 'Chana Masala', cuisine: 'Indian', meal: 'Lunch',
+    diets: ['nonveg', 'eggetarian', 'vegetarian', 'vegan'], allergens: [],
+    cal: 420, p: 18, c: 58, f: 12, time: 25,
+    ingredients: [
+      { name: 'Chickpeas', qty: '250 g, cooked' }, { name: 'Tomato', qty: '200 g' },
+      { name: 'Onion', qty: '1' }, { name: 'Olive oil', qty: '1 tsp' },
+      { name: 'Garam masala', qty: '1 tsp' }
+    ],
+    steps: [
+      'Cook the onion in the oil until soft and golden at the edges.',
+      'Add tomato, ginger, garlic and the spices; simmer for 5 minutes.',
+      'Add the chickpeas with a splash of water and simmer for 10 minutes.',
+      'Mash a few chickpeas to thicken the sauce and finish with lemon.'
+    ]
+  },
+  {
+    name: 'Dal Tadka', cuisine: 'Indian', meal: 'Dinner',
+    diets: ['nonveg', 'eggetarian', 'vegetarian', 'vegan'], allergens: [],
+    cal: 350, p: 18, c: 48, f: 9, time: 25,
+    ingredients: [
+      { name: 'Red lentils', qty: '250 g, cooked' }, { name: 'Tomato', qty: '1' },
+      { name: 'Garlic', qty: '2 cloves' }, { name: 'Cumin seeds', qty: '1 tsp' },
+      { name: 'Olive oil', qty: '1 tsp' }
+    ],
+    steps: [
+      'Simmer the cooked lentils with tomato, turmeric and a pinch of salt.',
+      'Heat the oil in a small pan and add cumin, garlic and dried chilli.',
+      'Pour the sizzling tempering over the dal and stir once.',
+      'Serve with steamed rice or a roti and a handful of greens.'
+    ]
+  },
+  {
+    name: 'Vegetable Poha', cuisine: 'Indian', meal: 'Tiffin',
+    diets: ['nonveg', 'eggetarian', 'vegetarian', 'vegan'], allergens: ['peanuts'],
+    cal: 330, p: 8, c: 52, f: 10, time: 15,
+    ingredients: [
+      { name: 'Flattened rice (poha)', qty: '80 g' }, { name: 'Green peas', qty: '60 g' },
+      { name: 'Carrot', qty: '1, grated' }, { name: 'Peanuts', qty: '15 g' },
+      { name: 'Olive oil', qty: '1 tsp' }
+    ],
+    steps: [
+      'Rinse the poha in a sieve until soft, then drain well.',
+      'Toast the peanuts in a dry pan and set aside.',
+      'Heat the oil, add mustard seeds, onion, peas and carrot; cook for 3 minutes.',
+      'Fold in the poha, warm through and finish with lemon and peanuts.'
+    ]
+  },
+  {
+    name: 'Grilled Tandoori Fish', cuisine: 'Indian', meal: 'Dinner',
+    diets: ['nonveg'], allergens: ['fish', 'dairy'],
+    cal: 360, p: 42, c: 10, f: 16, time: 25,
+    ingredients: [
+      { name: 'White fish fillet', qty: '180 g' }, { name: 'Greek yogurt', qty: '50 g' },
+      { name: 'Lemon', qty: '1/2' }, { name: 'Tandoori spices', qty: '1 tbsp' },
+      { name: 'Olive oil', qty: '1 tsp' }
+    ],
+    steps: [
+      'Pat the fish dry and coat it with yogurt, spices, lemon and oil.',
+      'Marinate for 10 minutes while the oven or grill heats.',
+      'Grill for 8–10 minutes until the fish flakes easily.',
+      'Serve with a large salad or steamed vegetables.'
+    ]
+  },
+  {
+    name: 'Rajma Bowl', cuisine: 'Indian', meal: 'Lunch',
+    diets: ['nonveg', 'eggetarian', 'vegetarian', 'vegan'], allergens: [],
+    cal: 430, p: 19, c: 62, f: 10, time: 30,
+    ingredients: [
+      { name: 'Kidney beans', qty: '250 g, cooked' }, { name: 'Cooked rice', qty: '120 g' },
+      { name: 'Tomato', qty: '200 g' }, { name: 'Onion', qty: '1' },
+      { name: 'Olive oil', qty: '1 tsp' }
+    ],
+    steps: [
+      'Soften the onion in the oil, then add tomato and ginger.',
+      'Stir in cumin, coriander and a little chilli powder.',
+      'Add the beans with a splash of water and simmer for 15 minutes.',
+      'Serve over rice with a spoon of yogurt if your diet allows dairy.'
+    ]
+  },
+  {
+    name: 'Mango Lassi Oats', cuisine: 'Indian', meal: 'Snacks',
+    diets: ['nonveg', 'eggetarian', 'vegetarian'], allergens: ['dairy', 'gluten'],
+    cal: 310, p: 14, c: 48, f: 8, time: 5,
+    ingredients: [
+      { name: 'Oats', qty: '50 g' }, { name: 'Greek yogurt', qty: '150 g' },
+      { name: 'Mango', qty: '100 g' }, { name: 'Milk', qty: '100 ml' },
+      { name: 'Cardamom', qty: 'a pinch' }
+    ],
+    steps: [
+      'Blend the yogurt, mango, milk and cardamom until smooth.',
+      'Stir in the oats and leave for 5 minutes to soften.',
+      'Add a splash more milk if you prefer a drinkable texture.',
+      'Top with diced mango and serve chilled.'
+    ]
+  },
+  {
+    name: 'Egg & Spinach Frittata', cuisine: 'Italian', meal: 'Tiffin',
+    diets: ['nonveg', 'eggetarian'], allergens: ['eggs', 'dairy'],
+    cal: 340, p: 25, c: 10, f: 22, time: 20,
+    ingredients: [
+      { name: 'Eggs', qty: '4' }, { name: 'Spinach', qty: '80 g' },
+      { name: 'Cheddar cheese', qty: '30 g' }, { name: 'Olive oil', qty: '1 tsp' },
+      { name: 'Cherry tomatoes', qty: '6' }
+    ],
+    steps: [
+      'Heat the oven to 190 °C / 375 °F.',
+      'Wilt the spinach in an oven-safe pan with the oil.',
+      'Whisk the eggs with salt and pepper, pour over the spinach and add tomatoes.',
+      'Scatter with cheese and bake for 10–12 minutes until just set.'
+    ]
+  },
+  {
+    name: 'Tomato Basil Pasta', cuisine: 'Italian', meal: 'Dinner',
+    diets: ['nonveg', 'eggetarian', 'vegetarian', 'vegan'], allergens: ['gluten'],
+    cal: 480, p: 15, c: 78, f: 12, time: 20,
+    ingredients: [
+      { name: 'Pasta', qty: '300 g, cooked' }, { name: 'Tomato', qty: '200 g' },
+      { name: 'Garlic', qty: '2 cloves' }, { name: 'Olive oil', qty: '1 tbsp' },
+      { name: 'Fresh basil', qty: 'a handful' }
+    ],
+    steps: [
+      'Warm the oil and cook the garlic gently until fragrant.',
+      'Add chopped tomato and simmer for 8–10 minutes.',
+      'Season with salt, pepper and a pinch of chilli flakes.',
+      'Toss with the hot pasta, basil and a splash of pasta water.'
+    ]
+  },
+  {
+    name: 'Chicken Pesto Pasta', cuisine: 'Italian', meal: 'Dinner',
+    diets: ['nonveg'], allergens: ['gluten', 'dairy', 'nuts'],
+    cal: 590, p: 42, c: 58, f: 22, time: 25,
+    ingredients: [
+      { name: 'Chicken breast', qty: '150 g, sliced' }, { name: 'Pasta', qty: '250 g, cooked' },
+      { name: 'Pesto', qty: '30 g' }, { name: 'Cherry tomatoes', qty: '8' },
+      { name: 'Olive oil', qty: '1 tsp' }
+    ],
+    steps: [
+      'Season and sear the chicken until cooked through, then set aside.',
+      'Halve the tomatoes and warm them in the same pan.',
+      'Toss the pasta with pesto and a splash of pasta water.',
+      'Return the chicken, add tomatoes and finish with black pepper.'
+    ]
+  },
+  {
+    name: 'Margherita Flatbread', cuisine: 'Italian', meal: 'Lunch',
+    diets: ['nonveg', 'eggetarian', 'vegetarian'], allergens: ['gluten', 'dairy'],
+    cal: 450, p: 18, c: 55, f: 18, time: 20,
+    ingredients: [
+      { name: 'Wholegrain flatbread', qty: '1 large' }, { name: 'Tomato passata', qty: '100 g' },
+      { name: 'Mozzarella', qty: '80 g' }, { name: 'Fresh basil', qty: 'a handful' },
+      { name: 'Olive oil', qty: '1 tsp' }
+    ],
+    steps: [
+      'Heat the oven to 220 °C / 425 °F.',
+      'Spread passata over the flatbread and season lightly.',
+      'Tear over the mozzarella and bake for 8–10 minutes.',
+      'Finish with basil and a drizzle of olive oil.'
+    ]
+  },
+  {
+    name: 'Lentil Bolognese', cuisine: 'Italian', meal: 'Dinner',
+    diets: ['nonveg', 'eggetarian', 'vegetarian', 'vegan'], allergens: ['gluten'],
+    cal: 460, p: 22, c: 66, f: 12, time: 30,
+    ingredients: [
+      { name: 'Lentils', qty: '250 g, cooked' }, { name: 'Pasta', qty: '200 g, cooked' },
+      { name: 'Tomato passata', qty: '200 g' }, { name: 'Carrot', qty: '1, grated' },
+      { name: 'Olive oil', qty: '1 tbsp' }
+    ],
+    steps: [
+      'Cook the carrot and onion in the oil until soft.',
+      'Add passata, herbs and the lentils; simmer for 12–15 minutes.',
+      'Season generously with black pepper and a little chilli.',
+      'Spoon over the pasta and serve with a green salad.'
+    ]
+  },
+  {
+    name: 'Caprese Salad', cuisine: 'Italian', meal: 'Snacks',
+    diets: ['nonveg', 'eggetarian', 'vegetarian'], allergens: ['dairy'],
+    cal: 300, p: 16, c: 10, f: 22, time: 10,
+    ingredients: [
+      { name: 'Mozzarella', qty: '100 g' }, { name: 'Tomato', qty: '150 g' },
+      { name: 'Fresh basil', qty: 'a handful' }, { name: 'Olive oil', qty: '1 tbsp' },
+      { name: 'Balsamic vinegar', qty: '1 tsp' }
+    ],
+    steps: [
+      'Slice the mozzarella and tomato into rounds.',
+      'Layer them on a plate with basil leaves between.',
+      'Season with salt and black pepper.',
+      'Drizzle with olive oil and balsamic vinegar just before serving.'
+    ]
+  },
+  {
+    name: 'Tuna & White Bean Salad', cuisine: 'Italian', meal: 'Lunch',
+    diets: ['nonveg'], allergens: ['fish'],
+    cal: 390, p: 34, c: 30, f: 14, time: 10,
+    ingredients: [
+      { name: 'Tuna', qty: '120 g, drained' }, { name: 'White beans', qty: '150 g, cooked' },
+      { name: 'Tomato', qty: '1' }, { name: 'Olive oil', qty: '1 tbsp' },
+      { name: 'Lemon', qty: '1/2' }
+    ],
+    steps: [
+      'Rinse the beans and drain the tuna well.',
+      'Chop the tomato and combine with the beans and tuna.',
+      'Whisk the olive oil, lemon juice, salt and pepper.',
+      'Toss gently and serve on a bed of rocket or spinach.'
+    ]
+  },
+  {
+    name: 'Ricotta Berry Toast', cuisine: 'Italian', meal: 'Tiffin',
+    diets: ['nonveg', 'eggetarian', 'vegetarian'], allergens: ['dairy', 'gluten'],
+    cal: 330, p: 16, c: 40, f: 12, time: 8,
+    ingredients: [
+      { name: 'Wholegrain bread', qty: '2 slices' }, { name: 'Ricotta', qty: '100 g' },
+      { name: 'Mixed berries', qty: '80 g' }, { name: 'Honey', qty: '1 tsp' },
+      { name: 'Cinnamon', qty: 'a pinch' }
+    ],
+    steps: [
+      'Toast the bread until crisp.',
+      'Spread the ricotta evenly and add a pinch of cinnamon.',
+      'Top with berries and a small drizzle of honey.',
+      'Add crushed nuts only if they fit your allergies and macros.'
+    ]
+  },
+  {
+    name: 'Garlic Mushroom Risotto', cuisine: 'Italian', meal: 'Dinner',
+    diets: ['nonveg', 'eggetarian', 'vegetarian', 'vegan'], allergens: [],
+    cal: 440, p: 12, c: 64, f: 14, time: 35,
+    ingredients: [
+      { name: 'Arborio rice', qty: '80 g' }, { name: 'Mushrooms', qty: '150 g' },
+      { name: 'Vegetable stock', qty: '500 ml' }, { name: 'Garlic', qty: '2 cloves' },
+      { name: 'Olive oil', qty: '1 tbsp' }
+    ],
+    steps: [
+      'Sauté the mushrooms and garlic in the oil until golden.',
+      'Add the rice and stir for a minute to coat the grains.',
+      'Add hot stock a ladle at a time, stirring until absorbed.',
+      'Finish with black pepper and nutritional yeast if you like a cheesy note.'
+    ]
+  },
+  {
+    name: 'Veg Fried Rice', cuisine: 'Chinese', meal: 'Lunch',
+    diets: ['nonveg', 'eggetarian', 'vegetarian', 'vegan'], allergens: ['soy', 'gluten'],
+    cal: 430, p: 12, c: 68, f: 12, time: 20,
+    ingredients: [
+      { name: 'Cooked rice', qty: '250 g, cold' }, { name: 'Mixed vegetables', qty: '150 g' },
+      { name: 'Soy sauce', qty: '1 tbsp' }, { name: 'Sesame oil', qty: '1 tsp' },
+      { name: 'Green peas', qty: '60 g' }
+    ],
+    steps: [
+      'Heat the sesame oil in a wide pan over high heat.',
+      'Stir-fry the vegetables and peas for 3–4 minutes.',
+      'Add the cold rice and press it against the pan to heat through.',
+      'Season with soy sauce and toss until evenly coloured.'
+    ]
+  },
+  {
+    name: 'Chicken & Broccoli Stir-fry', cuisine: 'Chinese', meal: 'Dinner',
+    diets: ['nonveg'], allergens: ['soy', 'gluten'],
+    cal: 460, p: 44, c: 30, f: 18, time: 25,
+    ingredients: [
+      { name: 'Chicken breast', qty: '180 g, sliced' }, { name: 'Broccoli', qty: '150 g' },
+      { name: 'Soy sauce', qty: '1 tbsp' }, { name: 'Garlic', qty: '2 cloves' },
+      { name: 'Cooked rice', qty: '100 g' }
+    ],
+    steps: [
+      'Heat a wide pan until very hot and add a little oil.',
+      'Sear the chicken until golden and just cooked, then remove.',
+      'Stir-fry the broccoli with garlic and a splash of water.',
+      'Return the chicken, add soy sauce and serve over rice.'
+    ]
+  },
+  {
+    name: 'Tofu Szechuan', cuisine: 'Chinese', meal: 'Dinner',
+    diets: ['nonveg', 'eggetarian', 'vegetarian', 'vegan'], allergens: ['soy'],
+    cal: 410, p: 22, c: 32, f: 22, time: 25,
+    ingredients: [
+      { name: 'Firm tofu', qty: '180 g, cubed' }, { name: 'Bell peppers', qty: '150 g' },
+      { name: 'Soy sauce', qty: '1 tbsp' }, { name: 'Chilli flakes', qty: '1 tsp' },
+      { name: 'Cooked rice', qty: '100 g' }
+    ],
+    steps: [
+      'Press the tofu dry and pan-fry until golden on most sides.',
+      'Add sliced peppers and stir-fry for 3 minutes.',
+      'Mix soy sauce, chilli flakes and a splash of water; pour over.',
+      'Toss until glossy and serve with rice.'
+    ]
+  },
+  {
+    name: 'Egg Drop Soup', cuisine: 'Chinese', meal: 'Tiffin',
+    diets: ['nonveg', 'eggetarian'], allergens: ['eggs', 'soy'],
+    cal: 180, p: 14, c: 10, f: 9, time: 15,
+    ingredients: [
+      { name: 'Eggs', qty: '2' }, { name: 'Vegetable stock', qty: '400 ml' },
+      { name: 'Soy sauce', qty: '1 tsp' }, { name: 'Cornflour', qty: '1 tsp' },
+      { name: 'Spring onion', qty: '2 stalks' }
+    ],
+    steps: [
+      'Bring the stock to a gentle simmer with soy sauce.',
+      'Mix the cornflour with cold water and stir it in.',
+      'Whisk the eggs and pour them in a thin stream while stirring slowly.',
+      'Remove from the heat and finish with spring onion.'
+    ]
+  },
+  {
+    name: 'Steamed Fish with Ginger', cuisine: 'Chinese', meal: 'Dinner',
+    diets: ['nonveg'], allergens: ['fish', 'soy', 'sesame'],
+    cal: 320, p: 40, c: 8, f: 14, time: 25,
+    ingredients: [
+      { name: 'White fish fillet', qty: '180 g' }, { name: 'Fresh ginger', qty: '2 cm, sliced' },
+      { name: 'Soy sauce', qty: '1 tbsp' }, { name: 'Sesame oil', qty: '1 tsp' },
+      { name: 'Pak choi', qty: '150 g' }
+    ],
+    steps: [
+      'Place the fish on a heatproof plate and top with ginger.',
+      'Steam over simmering water for 8–10 minutes.',
+      'Warm the soy sauce and sesame oil together.',
+      'Pour over the fish and serve with steamed pak choi.'
+    ]
+  },
+  {
+    name: 'Vegetable Spring Rolls', cuisine: 'Chinese', meal: 'Snacks',
+    diets: ['nonveg', 'eggetarian', 'vegetarian', 'vegan'], allergens: ['gluten', 'soy'],
+    cal: 360, p: 10, c: 48, f: 14, time: 30,
+    ingredients: [
+      { name: 'Spring roll wrappers', qty: '4' }, { name: 'Cabbage', qty: '150 g, shredded' },
+      { name: 'Carrot', qty: '1, grated' }, { name: 'Soy sauce', qty: '1 tbsp' },
+      { name: 'Olive oil', qty: '1 tsp' }
+    ],
+    steps: [
+      'Stir-fry the cabbage and carrot with soy sauce until just tender.',
+      'Cool slightly, then spoon the filling onto the wrappers.',
+      'Fold the sides in, roll tightly and seal the edge with water.',
+      'Bake at 200 °C / 400 °F for 15–18 minutes, turning once.'
+    ]
+  },
+  {
+    name: 'Beef & Pepper Stir-fry', cuisine: 'Chinese', meal: 'Dinner',
+    diets: ['nonveg'], allergens: ['soy'],
+    cal: 510, p: 42, c: 30, f: 24, time: 25,
+    ingredients: [
+      { name: 'Lean beef', qty: '160 g, thinly sliced' }, { name: 'Bell peppers', qty: '150 g' },
+      { name: 'Onion', qty: '1/2' }, { name: 'Soy sauce', qty: '1 tbsp' },
+      { name: 'Cooked rice', qty: '120 g' }
+    ],
+    steps: [
+      'Toss the beef with a little soy sauce and black pepper.',
+      'Sear it quickly in a very hot pan and remove.',
+      'Stir-fry the peppers and onion until crisp-tender.',
+      'Return the beef, add the remaining soy sauce and serve over rice.'
+    ]
+  },
+  {
+    name: 'Sesame Noodles', cuisine: 'Chinese', meal: 'Lunch',
+    diets: ['nonveg', 'eggetarian', 'vegetarian', 'vegan'], allergens: ['gluten', 'soy', 'sesame', 'peanuts'],
+    cal: 470, p: 16, c: 62, f: 18, time: 15,
+    ingredients: [
+      { name: 'Cooked noodles', qty: '200 g' }, { name: 'Sesame oil', qty: '1 tsp' },
+      { name: 'Soy sauce', qty: '1 tbsp' }, { name: 'Peanut butter', qty: '15 g' },
+      { name: 'Cucumber', qty: '1/2, sliced' }
+    ],
+    steps: [
+      'Whisk the sesame oil, soy sauce, peanut butter and a splash of warm water.',
+      'Toss the sauce through the warm noodles.',
+      'Add cucumber and spring onion.',
+      'Serve warm or cold, with extra chilli if you like.'
+    ]
+  },
+  {
+    name: 'Shrimp Dumplings', cuisine: 'Chinese', meal: 'Snacks',
+    diets: ['nonveg'], allergens: ['shellfish', 'gluten', 'soy'],
+    cal: 330, p: 24, c: 38, f: 8, time: 30,
+    ingredients: [
+      { name: 'Shrimp', qty: '150 g, chopped' }, { name: 'Dumpling wrappers', qty: '6' },
+      { name: 'Cabbage', qty: '80 g, finely chopped' }, { name: 'Soy sauce', qty: '1 tsp' },
+      { name: 'Fresh ginger', qty: '1 cm, grated' }
+    ],
+    steps: [
+      'Mix the shrimp, cabbage, soy sauce and ginger.',
+      'Spoon a little filling into each wrapper and pleat the edges.',
+      'Steam for 8–10 minutes until the filling is opaque.',
+      'Serve with a dipping sauce of soy, rice vinegar and chilli.'
+    ]
+  },
+  {
+    name: 'Black Bean Tacos', cuisine: 'Mexican', meal: 'Lunch',
+    diets: ['nonveg', 'eggetarian', 'vegetarian', 'vegan'], allergens: [],
+    cal: 420, p: 16, c: 62, f: 12, time: 15,
+    ingredients: [
+      { name: 'Corn tortillas', qty: '3' }, { name: 'Black beans', qty: '200 g, cooked' },
+      { name: 'Salsa', qty: '50 g' }, { name: 'Avocado', qty: '1/4' },
+      { name: 'Lime', qty: '1/2' }
+    ],
+    steps: [
+      'Warm the beans with cumin, smoked paprika and a pinch of salt.',
+      'Warm the tortillas in a dry pan.',
+      'Fill each tortilla with beans, salsa and sliced avocado.',
+      'Finish with lime juice and fresh coriander.'
+    ]
+  },
+  {
+    name: 'Chicken Burrito Bowl', cuisine: 'Mexican', meal: 'Dinner',
+    diets: ['nonveg'], allergens: [],
+    cal: 560, p: 46, c: 58, f: 16, time: 25,
+    ingredients: [
+      { name: 'Chicken breast', qty: '180 g' }, { name: 'Cooked rice', qty: '150 g' },
+      { name: 'Black beans', qty: '100 g' }, { name: 'Salsa', qty: '60 g' },
+      { name: 'Avocado', qty: '1/4' }
+    ],
+    steps: [
+      'Season the chicken with cumin, paprika, garlic and salt.',
+      'Pan-sear for 5–6 minutes per side, rest, then slice.',
+      'Warm the beans and rice together with a little lime juice.',
+      'Build the bowl with salsa, avocado and coriander.'
+    ]
+  },
+  {
+    name: 'Huevos Rancheros', cuisine: 'Mexican', meal: 'Tiffin',
+    diets: ['nonveg', 'eggetarian'], allergens: ['eggs'],
+    cal: 430, p: 22, c: 44, f: 18, time: 20,
+    ingredients: [
+      { name: 'Eggs', qty: '2' }, { name: 'Corn tortillas', qty: '2' },
+      { name: 'Black beans', qty: '120 g' }, { name: 'Salsa', qty: '60 g' },
+      { name: 'Avocado', qty: '1/4' }
+    ],
+    steps: [
+      'Warm the beans with a pinch of cumin.',
+      'Toast the tortillas in a dry pan.',
+      'Fry or poach the eggs to your liking.',
+      'Stack tortillas, beans and eggs; top with salsa and avocado.'
+    ]
+  },
+  {
+    name: 'Guacamole & Veg Sticks', cuisine: 'Mexican', meal: 'Snacks',
+    diets: ['nonveg', 'eggetarian', 'vegetarian', 'vegan'], allergens: [],
+    cal: 260, p: 6, c: 18, f: 20, time: 10,
+    ingredients: [
+      { name: 'Avocado', qty: '1' }, { name: 'Tomato', qty: '1/2' },
+      { name: 'Red onion', qty: '2 tbsp, chopped' }, { name: 'Lime', qty: '1' },
+      { name: 'Carrot & cucumber sticks', qty: '1 cup' }
+    ],
+    steps: [
+      'Mash the avocado with lime juice and a pinch of salt.',
+      'Fold in the tomato, onion and coriander.',
+      'Taste and add more lime or chilli if needed.',
+      'Serve with raw vegetable sticks for dipping.'
+    ]
+  },
+  {
+    name: 'Beef Taco Salad', cuisine: 'Mexican', meal: 'Dinner',
+    diets: ['nonveg'], allergens: ['dairy'],
+    cal: 520, p: 38, c: 32, f: 28, time: 20,
+    ingredients: [
+      { name: 'Lean beef mince', qty: '150 g' }, { name: 'Lettuce', qty: '2 cups' },
+      { name: 'Black beans', qty: '80 g' }, { name: 'Cheddar cheese', qty: '30 g' },
+      { name: 'Salsa & avocado', qty: '60 g / 1/4' }
+    ],
+    steps: [
+      'Brown the beef with cumin, paprika and garlic.',
+      'Warm the beans and season with lime juice.',
+      'Build a bowl with lettuce, beef, beans and salsa.',
+      'Top with cheese and sliced avocado.'
+    ]
+  },
+  {
+    name: 'Cheese Quesadilla', cuisine: 'Mexican', meal: 'Snacks',
+    diets: ['nonveg', 'eggetarian', 'vegetarian'], allergens: ['gluten', 'dairy'],
+    cal: 420, p: 20, c: 40, f: 20, time: 12,
+    ingredients: [
+      { name: 'Flour tortillas', qty: '2' }, { name: 'Cheddar cheese', qty: '80 g' },
+      { name: 'Black beans', qty: '80 g' }, { name: 'Salsa', qty: '40 g' },
+      { name: 'Olive oil', qty: '1 tsp' }
+    ],
+    steps: [
+      'Spread cheese and beans over one tortilla and top with the second.',
+      'Cook in a lightly oiled pan for 2–3 minutes per side.',
+      'Press gently so the filling melts together.',
+      'Cut into wedges and serve with salsa.'
+    ]
+  },
+  {
+    name: 'Lentil Enchiladas', cuisine: 'Mexican', meal: 'Dinner',
+    diets: ['nonveg', 'eggetarian', 'vegetarian'], allergens: ['gluten', 'dairy'],
+    cal: 470, p: 22, c: 58, f: 16, time: 30,
+    ingredients: [
+      { name: 'Corn tortillas', qty: '3' }, { name: 'Lentils', qty: '200 g, cooked' },
+      { name: 'Enchilada sauce', qty: '150 g' }, { name: 'Cheddar cheese', qty: '60 g' },
+      { name: 'Tomato', qty: '1, chopped' }
+    ],
+    steps: [
+      'Mix the lentils with half the sauce and the chopped tomato.',
+      'Fill the tortillas, roll them and place in a baking dish.',
+      'Pour over the remaining sauce and scatter with cheese.',
+      'Bake at 190 °C / 375 °F for 15–18 minutes.'
+    ]
+  },
+  {
+    name: 'Fish Tacos', cuisine: 'Mexican', meal: 'Dinner',
+    diets: ['nonveg'], allergens: ['fish', 'dairy'],
+    cal: 460, p: 34, c: 42, f: 18, time: 20,
+    ingredients: [
+      { name: 'White fish', qty: '150 g' }, { name: 'Corn tortillas', qty: '3' },
+      { name: 'Cabbage', qty: '1 cup, shredded' }, { name: 'Greek yogurt', qty: '40 g' },
+      { name: 'Lime & chilli', qty: 'to taste' }
+    ],
+    steps: [
+      'Season the fish with cumin, paprika, salt and lime.',
+      'Pan-sear for 3–4 minutes per side, then flake gently.',
+      'Mix the yogurt with lime juice and a little chilli.',
+      'Fill warm tortillas with fish, cabbage and the yogurt sauce.'
+    ]
+  },
+  {
+    name: 'Corn & Bean Salsa', cuisine: 'Mexican', meal: 'Snacks',
+    diets: ['nonveg', 'eggetarian', 'vegetarian', 'vegan'], allergens: [],
+    cal: 220, p: 8, c: 38, f: 4, time: 10,
+    ingredients: [
+      { name: 'Sweetcorn', qty: '150 g' }, { name: 'Black beans', qty: '120 g' },
+      { name: 'Tomato', qty: '1' }, { name: 'Red onion', qty: '2 tbsp' },
+      { name: 'Lime & coriander', qty: 'to taste' }
+    ],
+    steps: [
+      'Rinse the beans and drain the corn.',
+      'Dice the tomato and finely chop the onion.',
+      'Combine everything with lime juice, coriander and salt.',
+      'Chill for 10 minutes and serve with wholegrain crackers or veg sticks.'
+    ]
+  },
+  {
+    name: 'Greek Salad with Feta', cuisine: 'Mediterranean', meal: 'Lunch',
+    diets: ['nonveg', 'eggetarian', 'vegetarian'], allergens: ['dairy'],
+    cal: 360, p: 14, c: 18, f: 26, time: 10,
+    ingredients: [
+      { name: 'Cucumber', qty: '1' }, { name: 'Tomato', qty: '2' },
+      { name: 'Feta cheese', qty: '80 g' }, { name: 'Olives', qty: '30 g' },
+      { name: 'Olive oil', qty: '1 tbsp' }
+    ],
+    steps: [
+      'Chop the cucumber and tomato into chunks.',
+      'Add the olives and crumble over the feta.',
+      'Dress with olive oil, oregano and black pepper.',
+      'Toss gently and serve with wholemeal pita if you need more carbs.'
+    ]
+  },
+  {
+    name: 'Grilled Chicken Souvlaki', cuisine: 'Mediterranean', meal: 'Dinner',
+    diets: ['nonveg'], allergens: ['dairy', 'gluten'],
+    cal: 480, p: 48, c: 36, f: 16, time: 30,
+    ingredients: [
+      { name: 'Chicken breast', qty: '200 g, cubed' }, { name: 'Greek yogurt', qty: '50 g' },
+      { name: 'Wholemeal pita', qty: '1' }, { name: 'Salad vegetables', qty: '1 cup' },
+      { name: 'Olive oil', qty: '1 tsp' }
+    ],
+    steps: [
+      'Marinate the chicken in yogurt, lemon, garlic and oregano for 10 minutes.',
+      'Thread onto skewers and grill for 10–12 minutes, turning.',
+      'Warm the pita and prepare a simple salad.',
+      'Serve the skewers with pita, salad and a spoon of yogurt.'
+    ]
+  },
+  {
+    name: 'Falafel Bowl', cuisine: 'Mediterranean', meal: 'Lunch',
+    diets: ['nonveg', 'eggetarian', 'vegetarian', 'vegan'], allergens: ['sesame'],
+    cal: 520, p: 20, c: 62, f: 24, time: 30,
+    ingredients: [
+      { name: 'Falafel', qty: '4 pieces' }, { name: 'Cooked quinoa', qty: '150 g' },
+      { name: 'Hummus', qty: '50 g' }, { name: 'Salad vegetables', qty: '1 cup' },
+      { name: 'Olive oil', qty: '1 tsp' }
+    ],
+    steps: [
+      'Bake or pan-fry the falafel until crisp and hot.',
+      'Fluff the quinoa with lemon juice and chopped herbs.',
+      'Build a bowl with quinoa, salad and falafel.',
+      'Add hummus and a drizzle of olive oil.'
+    ]
+  },
+  {
+    name: 'Hummus & Veggie Wrap', cuisine: 'Mediterranean', meal: 'Lunch',
+    diets: ['nonveg', 'eggetarian', 'vegetarian', 'vegan'], allergens: ['gluten', 'sesame'],
+    cal: 430, p: 14, c: 58, f: 16, time: 10,
+    ingredients: [
+      { name: 'Wholewheat wrap', qty: '1 large' }, { name: 'Hummus', qty: '80 g' },
+      { name: 'Cucumber', qty: '1/2' }, { name: 'Carrot', qty: '1, grated' },
+      { name: 'Spinach', qty: 'a handful' }
+    ],
+    steps: [
+      'Spread the hummus across the wrap, leaving a border.',
+      'Layer the spinach, cucumber and carrot along one side.',
+      'Roll tightly, tucking in the ends as you go.',
+      'Cut in half and pack for lunch.'
+    ]
+  },
+  {
+    name: 'Shakshuka', cuisine: 'Mediterranean', meal: 'Tiffin',
+    diets: ['nonveg', 'eggetarian'], allergens: ['eggs'],
+    cal: 360, p: 20, c: 26, f: 20, time: 25,
+    ingredients: [
+      { name: 'Eggs', qty: '3' }, { name: 'Tomato', qty: '300 g' },
+      { name: 'Onion', qty: '1' }, { name: 'Bell pepper', qty: '1' },
+      { name: 'Olive oil', qty: '1 tsp' }
+    ],
+    steps: [
+      'Soften the onion and pepper in the oil.',
+      'Add the tomato, cumin and paprika; simmer for 10 minutes.',
+      'Make three wells in the sauce and crack in the eggs.',
+      'Cover and cook gently until the whites set; finish with parsley.'
+    ]
+  },
+  {
+    name: 'Baked Salmon & Veg', cuisine: 'Mediterranean', meal: 'Dinner',
+    diets: ['nonveg'], allergens: ['fish'],
+    cal: 520, p: 40, c: 28, f: 26, time: 30,
+    ingredients: [
+      { name: 'Salmon fillet', qty: '160 g' }, { name: 'Zucchini', qty: '1' },
+      { name: 'Bell peppers', qty: '1 cup' }, { name: 'Olive oil', qty: '1 tbsp' },
+      { name: 'Lemon', qty: '1/2' }
+    ],
+    steps: [
+      'Heat the oven to 200 °C / 400 °F.',
+      'Toss the vegetables with oil, salt and pepper on a tray.',
+      'Add the salmon and bake for 12–15 minutes.',
+      'Finish with lemon juice and fresh herbs.'
+    ]
+  },
+  {
+    name: 'Stuffed Vine Leaves', cuisine: 'Mediterranean', meal: 'Snacks',
+    diets: ['nonveg', 'eggetarian', 'vegetarian', 'vegan'], allergens: [],
+    cal: 280, p: 6, c: 42, f: 10, time: 40,
+    ingredients: [
+      { name: 'Vine leaves', qty: '8' }, { name: 'Rice', qty: '80 g' },
+      { name: 'Tomato', qty: '1' }, { name: 'Onion', qty: '1/2' },
+      { name: 'Olive oil & lemon', qty: '1 tsp / 1/2' }
+    ],
+    steps: [
+      'Rinse the rice and mix with chopped tomato, onion, herbs and oil.',
+      'Place a spoon of filling on each vine leaf and roll tightly.',
+      'Arrange in a pan, add water and lemon, and weigh down with a plate.',
+      'Simmer gently for 30 minutes and serve warm or cold.'
+    ]
+  },
+  {
+    name: 'Tabbouleh', cuisine: 'Mediterranean', meal: 'Lunch',
+    diets: ['nonveg', 'eggetarian', 'vegetarian', 'vegan'], allergens: ['gluten'],
+    cal: 300, p: 8, c: 44, f: 12, time: 15,
+    ingredients: [
+      { name: 'Bulgur wheat', qty: '80 g' }, { name: 'Parsley', qty: '1 large bunch' },
+      { name: 'Tomato', qty: '2' }, { name: 'Cucumber', qty: '1/2' },
+      { name: 'Olive oil & lemon', qty: '1 tbsp / 1' }
+    ],
+    steps: [
+      'Cover the bulgur with boiling water for 10 minutes, then drain.',
+      'Finely chop the parsley, tomato and cucumber.',
+      'Combine with the bulgur, olive oil and lemon juice.',
+      'Season and rest for 10 minutes before serving.'
+    ]
+  },
+  {
+    name: 'Halloumi & Veg Skewers', cuisine: 'Mediterranean', meal: 'Dinner',
+    diets: ['nonveg', 'eggetarian', 'vegetarian'], allergens: ['dairy'],
+    cal: 440, p: 24, c: 22, f: 28, time: 20,
+    ingredients: [
+      { name: 'Halloumi', qty: '120 g, cubed' }, { name: 'Zucchini', qty: '1' },
+      { name: 'Bell peppers', qty: '1' }, { name: 'Red onion', qty: '1/2' },
+      { name: 'Olive oil', qty: '1 tsp' }
+    ],
+    steps: [
+      'Cut the vegetables into chunks and thread onto skewers with halloumi.',
+      'Brush with olive oil and season with oregano and pepper.',
+      'Grill or bake for 12–15 minutes, turning once.',
+      'Serve with a squeeze of lemon and a green salad.'
+    ]
+  },
+  {
+    name: 'Protein Pancakes', cuisine: 'American', meal: 'Tiffin',
+    diets: ['nonveg', 'eggetarian'], allergens: ['eggs', 'dairy', 'gluten'],
+    cal: 410, p: 32, c: 44, f: 12, time: 15,
+    ingredients: [
+      { name: 'Oats', qty: '60 g' }, { name: 'Eggs', qty: '2' },
+      { name: 'Greek yogurt', qty: '80 g' }, { name: 'Banana', qty: '1/2' },
+      { name: 'Baking powder', qty: '1/2 tsp' }
+    ],
+    steps: [
+      'Blend the oats, eggs, yogurt, banana and baking powder until smooth.',
+      'Rest the batter for 5 minutes to thicken.',
+      'Cook small pancakes in a non-stick pan for 2 minutes per side.',
+      'Stack and top with berries or a spoon of yogurt.'
+    ]
+  },
+  {
+    name: 'Turkey Club Wrap', cuisine: 'American', meal: 'Lunch',
+    diets: ['nonveg'], allergens: ['gluten', 'dairy'],
+    cal: 490, p: 38, c: 44, f: 18, time: 10,
+    ingredients: [
+      { name: 'Turkey breast', qty: '120 g, sliced' }, { name: 'Wholewheat wrap', qty: '1' },
+      { name: 'Cheddar cheese', qty: '30 g' }, { name: 'Lettuce & tomato', qty: '1 cup' },
+      { name: 'Mustard', qty: '1 tsp' }
+    ],
+    steps: [
+      'Lay the wrap flat and spread with mustard.',
+      'Add lettuce, tomato, turkey and cheese in layers.',
+      'Roll tightly, folding in the sides as you go.',
+      'Cut in half and secure with a toothpick if needed.'
+    ]
+  },
+  {
+    name: 'Cobb Salad', cuisine: 'American', meal: 'Lunch',
+    diets: ['nonveg'], allergens: ['eggs', 'dairy'],
+    cal: 520, p: 42, c: 18, f: 32, time: 15,
+    ingredients: [
+      { name: 'Chicken breast', qty: '120 g, cooked' }, { name: 'Eggs', qty: '2, boiled' },
+      { name: 'Avocado', qty: '1/2' }, { name: 'Blue cheese', qty: '30 g' },
+      { name: 'Lettuce & tomato', qty: '2 cups' }
+    ],
+    steps: [
+      'Arrange chopped lettuce and tomato on a plate.',
+      'Top with sliced chicken, halved eggs and avocado.',
+      'Crumble over the blue cheese.',
+      'Dress with olive oil, lemon and black pepper.'
+    ]
+  },
+  {
+    name: 'Mac & Cheese', cuisine: 'American', meal: 'Dinner',
+    diets: ['nonveg', 'eggetarian', 'vegetarian'], allergens: ['gluten', 'dairy'],
+    cal: 560, p: 24, c: 64, f: 22, time: 25,
+    ingredients: [
+      { name: 'Pasta', qty: '200 g, cooked' }, { name: 'Cheddar cheese', qty: '100 g' },
+      { name: 'Milk', qty: '100 ml' }, { name: 'Butter', qty: '1 tsp' },
+      { name: 'Wholegrain mustard', qty: '1 tsp' }
+    ],
+    steps: [
+      'Warm the milk and butter in a pan without boiling.',
+      'Add the grated cheese and mustard, stirring until smooth.',
+      'Fold in the cooked pasta and season with black pepper.',
+      'Serve with steamed broccoli to add fibre and volume.'
+    ]
+  },
+  {
+    name: 'Veg Burger', cuisine: 'American', meal: 'Dinner',
+    diets: ['nonveg', 'eggetarian', 'vegetarian', 'vegan'], allergens: ['gluten', 'soy'],
+    cal: 460, p: 18, c: 62, f: 16, time: 20,
+    ingredients: [
+      { name: 'Plant-based burger patty', qty: '1' }, { name: 'Wholegrain bun', qty: '1' },
+      { name: 'Lettuce & tomato', qty: '1 cup' }, { name: 'Avocado', qty: '1/4' },
+      { name: 'Tomato ketchup', qty: '1 tsp' }
+    ],
+    steps: [
+      'Cook the patty in a non-stick pan for 4–5 minutes per side.',
+      'Toast the bun lightly.',
+      'Layer lettuce, tomato, patty and avocado.',
+      'Add ketchup, close the bun and serve with a side salad.'
+    ]
+  },
+  {
+    name: 'Overnight Oats', cuisine: 'American', meal: 'Tiffin',
+    diets: ['nonveg', 'eggetarian', 'vegetarian'], allergens: ['dairy', 'gluten'],
+    cal: 390, p: 20, c: 52, f: 12, time: 5,
+    ingredients: [
+      { name: 'Oats', qty: '60 g' }, { name: 'Milk', qty: '200 ml' },
+      { name: 'Greek yogurt', qty: '80 g' }, { name: 'Chia seeds', qty: '10 g' },
+      { name: 'Mixed berries', qty: '80 g' }
+    ],
+    steps: [
+      'Mix the oats, milk, yogurt and chia seeds in a jar.',
+      'Stir well, cover and refrigerate overnight.',
+      'In the morning, loosen with a splash of milk if needed.',
+      'Top with berries and a little cinnamon.'
+    ]
+  },
+  {
+    name: 'Grilled Steak & Potatoes', cuisine: 'American', meal: 'Dinner',
+    diets: ['nonveg'], allergens: ['dairy'],
+    cal: 620, p: 46, c: 40, f: 30, time: 30,
+    ingredients: [
+      { name: 'Lean steak', qty: '180 g' }, { name: 'Potato', qty: '250 g' },
+      { name: 'Olive oil', qty: '1 tbsp' }, { name: 'Butter', qty: '1 tsp' },
+      { name: 'Green beans', qty: '150 g' }
+    ],
+    steps: [
+      'Boil the potatoes until just tender, then crush lightly.',
+      'Season the steak and sear for 3–4 minutes per side; rest it.',
+      'Roast the potatoes and green beans with olive oil for 15 minutes.',
+      'Finish the potatoes with butter and serve with sliced steak.'
+    ]
+  },
+  {
+    name: 'Buffalo Cauliflower Bites', cuisine: 'American', meal: 'Snacks',
+    diets: ['nonveg', 'eggetarian', 'vegetarian', 'vegan'], allergens: ['gluten'],
+    cal: 300, p: 10, c: 42, f: 12, time: 25,
+    ingredients: [
+      { name: 'Cauliflower', qty: '300 g' }, { name: 'Flour', qty: '40 g' },
+      { name: 'Hot sauce', qty: '2 tbsp' }, { name: 'Olive oil', qty: '1 tsp' },
+      { name: 'Garlic powder', qty: '1/2 tsp' }
+    ],
+    steps: [
+      'Cut the cauliflower into florets.',
+      'Toss with flour, garlic powder, salt and a splash of water.',
+      'Bake at 220 °C / 425 °F for 18 minutes.',
+      'Coat with hot sauce mixed with olive oil and bake 5 more minutes.'
+    ]
+  },
+  {
+    name: 'Peanut Butter Energy Balls', cuisine: 'American', meal: 'Snacks',
+    diets: ['nonveg', 'eggetarian', 'vegetarian', 'vegan'], allergens: ['peanuts', 'nuts'],
+    cal: 280, p: 10, c: 28, f: 16, time: 10,
+    ingredients: [
+      { name: 'Oats', qty: '40 g' }, { name: 'Peanut butter', qty: '30 g' },
+      { name: 'Dates', qty: '60 g' }, { name: 'Chia seeds', qty: '10 g' },
+      { name: 'Cocoa powder', qty: '1 tsp' }
+    ],
+    steps: [
+      'Blend the dates into a sticky paste.',
+      'Mix with the oats, peanut butter, chia and cocoa.',
+      'Roll into small balls with damp hands.',
+      'Chill for 20 minutes and keep refrigerated.'
+    ]
+  },
+  {
+    name: 'Thai Green Curry Tofu', cuisine: 'Thai', meal: 'Dinner',
+    diets: ['nonveg', 'eggetarian', 'vegetarian', 'vegan'], allergens: ['soy'],
+    cal: 480, p: 22, c: 42, f: 26, time: 25,
+    ingredients: [
+      { name: 'Firm tofu', qty: '180 g' }, { name: 'Green curry paste', qty: '2 tbsp' },
+      { name: 'Coconut milk', qty: '150 ml' }, { name: 'Mixed vegetables', qty: '150 g' },
+      { name: 'Cooked rice', qty: '120 g' }
+    ],
+    steps: [
+      'Pan-fry the tofu until golden and set aside.',
+      'Cook the curry paste in a little coconut cream until fragrant.',
+      'Add the vegetables, remaining coconut milk and tofu; simmer 10 minutes.',
+      'Taste, adjust with lime and serve over rice.'
+    ]
+  },
+  {
+    name: 'Pad Thai Chicken', cuisine: 'Thai', meal: 'Dinner',
+    diets: ['nonveg'], allergens: ['peanuts', 'eggs', 'fish', 'soy'],
+    cal: 580, p: 38, c: 64, f: 20, time: 25,
+    ingredients: [
+      { name: 'Rice noodles', qty: '200 g, cooked' }, { name: 'Chicken breast', qty: '150 g' },
+      { name: 'Egg', qty: '1' }, { name: 'Peanuts', qty: '15 g' },
+      { name: 'Fish sauce & lime', qty: '1 tbsp / 1/2' }
+    ],
+    steps: [
+      'Stir-fry the chicken in a hot pan until nearly cooked.',
+      'Push it to one side, scramble the egg, then combine.',
+      'Add the noodles, fish sauce and lime; toss over high heat.',
+      'Finish with crushed peanuts, bean sprouts and coriander.'
+    ]
+  },
+  {
+    name: 'Thai Mango Salad', cuisine: 'Thai', meal: 'Snacks',
+    diets: ['nonveg', 'eggetarian', 'vegetarian', 'vegan'], allergens: ['peanuts'],
+    cal: 240, p: 5, c: 38, f: 9, time: 12,
+    ingredients: [
+      { name: 'Mango', qty: '150 g, shredded' }, { name: 'Cucumber', qty: '1/2' },
+      { name: 'Carrot', qty: '1, shredded' }, { name: 'Peanuts', qty: '15 g' },
+      { name: 'Lime & chilli', qty: 'to taste' }
+    ],
+    steps: [
+      'Julienne the mango, cucumber and carrot.',
+      'Whisk lime juice, a pinch of sugar and chopped chilli.',
+      'Toss the fruit and vegetables with the dressing.',
+      'Top with crushed peanuts just before serving.'
+    ]
+  },
+  {
+    name: 'Tom Yum Soup', cuisine: 'Thai', meal: 'Lunch',
+    diets: ['nonveg'], allergens: ['shellfish', 'fish'],
+    cal: 260, p: 28, c: 18, f: 10, time: 20,
+    ingredients: [
+      { name: 'Shrimp', qty: '150 g' }, { name: 'Mushrooms', qty: '100 g' },
+      { name: 'Lemongrass', qty: '1 stalk' }, { name: 'Fish sauce', qty: '1 tbsp' },
+      { name: 'Lime & chilli', qty: 'to taste' }
+    ],
+    steps: [
+      'Simmer lemongrass, ginger and chilli in water for 8 minutes.',
+      'Add the mushrooms and shrimp; cook until the shrimp turn pink.',
+      'Season with fish sauce and lime juice.',
+      'Finish with coriander and serve hot.'
+    ]
+  },
+  {
+    name: 'Basil Chicken Rice', cuisine: 'Thai', meal: 'Dinner',
+    diets: ['nonveg'], allergens: ['fish', 'soy'],
+    cal: 520, p: 42, c: 52, f: 16, time: 20,
+    ingredients: [
+      { name: 'Chicken mince', qty: '180 g' }, { name: 'Thai basil', qty: 'a handful' },
+      { name: 'Garlic & chilli', qty: '2 cloves / 1' }, { name: 'Fish sauce', qty: '1 tbsp' },
+      { name: 'Cooked rice', qty: '150 g' }
+    ],
+    steps: [
+      'Fry the garlic and chilli in a hot pan until fragrant.',
+      'Add the chicken and stir-fry until cooked through.',
+      'Season with fish sauce and a pinch of sugar.',
+      'Fold in the basil and serve over rice with cucumber.'
+    ]
+  },
+  {
+    name: 'Thai Veg Curry', cuisine: 'Thai', meal: 'Lunch',
+    diets: ['nonveg', 'eggetarian', 'vegetarian', 'vegan'], allergens: [],
+    cal: 430, p: 14, c: 50, f: 22, time: 25,
+    ingredients: [
+      { name: 'Mixed vegetables', qty: '250 g' }, { name: 'Coconut milk', qty: '150 ml' },
+      { name: 'Vegan curry paste', qty: '2 tbsp' }, { name: 'Tofu', qty: '100 g' },
+      { name: 'Cooked rice', qty: '120 g' }
+    ],
+    steps: [
+      'Cook the curry paste in a little coconut milk until aromatic.',
+      'Add the vegetables and tofu, then the remaining coconut milk.',
+      'Simmer for 12–15 minutes until the vegetables are tender.',
+      'Season with lime and serve over rice.'
+    ]
+  },
+  {
+    name: 'Coconut Chia Pudding', cuisine: 'Thai', meal: 'Snacks',
+    diets: ['nonveg', 'eggetarian', 'vegetarian', 'vegan'], allergens: [],
+    cal: 290, p: 8, c: 30, f: 16, time: 5,
+    ingredients: [
+      { name: 'Chia seeds', qty: '30 g' }, { name: 'Coconut milk', qty: '200 ml' },
+      { name: 'Mango', qty: '80 g' }, { name: 'Maple syrup', qty: '1 tsp' },
+      { name: 'Lime zest', qty: 'a pinch' }
+    ],
+    steps: [
+      'Whisk the chia seeds into the coconut milk with maple syrup.',
+      'Rest for 10 minutes, then stir again to break up clumps.',
+      'Chill for at least 2 hours or overnight.',
+      'Top with diced mango and lime zest.'
+    ]
+  },
+  {
+    name: 'Thai Fish Cakes', cuisine: 'Thai', meal: 'Snacks',
+    diets: ['nonveg'], allergens: ['fish', 'eggs'],
+    cal: 340, p: 28, c: 20, f: 16, time: 25,
+    ingredients: [
+      { name: 'White fish', qty: '180 g' }, { name: 'Egg', qty: '1' },
+      { name: 'Red curry paste', qty: '1 tbsp' }, { name: 'Green beans', qty: '60 g' },
+      { name: 'Olive oil', qty: '1 tsp' }
+    ],
+    steps: [
+      'Blend the fish, egg and curry paste into a coarse paste.',
+      'Finely chop the beans and fold them through.',
+      'Shape into small patties with damp hands.',
+      'Pan-fry for 3–4 minutes per side and serve with lime.'
+    ]
+  },
+  {
+    name: 'Salmon Teriyaki Bowl', cuisine: 'Japanese', meal: 'Dinner',
+    diets: ['nonveg'], allergens: ['fish', 'soy', 'sesame'],
+    cal: 540, p: 38, c: 52, f: 20, time: 25,
+    ingredients: [
+      { name: 'Salmon fillet', qty: '160 g' }, { name: 'Cooked rice', qty: '180 g' },
+      { name: 'Soy sauce', qty: '1 tbsp' }, { name: 'Honey', qty: '1 tsp' },
+      { name: 'Broccoli', qty: '100 g' }
+    ],
+    steps: [
+      'Mix soy sauce, honey and a splash of water for the teriyaki sauce.',
+      'Pan-sear the salmon for 4 minutes, then flip.',
+      'Add the sauce and spoon it over as it thickens.',
+      'Serve over rice with steamed broccoli and sesame seeds.'
+    ]
+  },
+  {
+    name: 'Veggie Sushi Bowl', cuisine: 'Japanese', meal: 'Lunch',
+    diets: ['nonveg', 'eggetarian', 'vegetarian', 'vegan'], allergens: ['soy', 'sesame'],
+    cal: 430, p: 14, c: 66, f: 12, time: 20,
+    ingredients: [
+      { name: 'Cooked sushi rice', qty: '180 g' }, { name: 'Cucumber', qty: '1/2' },
+      { name: 'Avocado', qty: '1/2' }, { name: 'Carrot', qty: '1, grated' },
+      { name: 'Nori & soy sauce', qty: '1 sheet / 1 tbsp' }
+    ],
+    steps: [
+      'Season the warm rice with a little rice vinegar and salt.',
+      'Slice the cucumber, avocado and carrot.',
+      'Arrange everything over the rice with torn nori.',
+      'Drizzle with soy sauce and sprinkle with sesame seeds.'
+    ]
+  },
+  {
+    name: 'Miso Soup', cuisine: 'Japanese', meal: 'Tiffin',
+    diets: ['nonveg', 'eggetarian', 'vegetarian', 'vegan'], allergens: ['soy'],
+    cal: 120, p: 8, c: 12, f: 4, time: 10,
+    ingredients: [
+      { name: 'Miso paste', qty: '1 tbsp' }, { name: 'Silken tofu', qty: '80 g' },
+      { name: 'Dried seaweed', qty: '1 tsp' }, { name: 'Spring onion', qty: '2 stalks' },
+      { name: 'Vegetable stock', qty: '350 ml' }
+    ],
+    steps: [
+      'Warm the stock gently; do not let it boil hard.',
+      'Whisk the miso with a little warm stock and stir it back in.',
+      'Add cubed tofu and seaweed and warm for 2 minutes.',
+      'Finish with spring onion and serve immediately.'
+    ]
+  },
+  {
+    name: 'Chicken Katsu', cuisine: 'Japanese', meal: 'Dinner',
+    diets: ['nonveg'], allergens: ['gluten', 'eggs'],
+    cal: 590, p: 42, c: 54, f: 22, time: 30,
+    ingredients: [
+      { name: 'Chicken breast', qty: '180 g, flattened' }, { name: 'Breadcrumbs', qty: '40 g' },
+      { name: 'Egg', qty: '1' }, { name: 'Flour', qty: '20 g' },
+      { name: 'Cooked rice', qty: '150 g' }
+    ],
+    steps: [
+      'Coat the chicken in flour, then egg, then breadcrumbs.',
+      'Pan-fry in a little oil for 4–5 minutes per side.',
+      'Rest on kitchen paper, then slice into strips.',
+      'Serve over rice with shredded cabbage and a light sauce.'
+    ]
+  },
+  {
+    name: 'Edamame Snack', cuisine: 'Japanese', meal: 'Snacks',
+    diets: ['nonveg', 'eggetarian', 'vegetarian', 'vegan'], allergens: ['soy'],
+    cal: 180, p: 16, c: 14, f: 7, time: 8,
+    ingredients: [
+      { name: 'Edamame', qty: '150 g' }, { name: 'Sea salt', qty: 'a pinch' },
+      { name: 'Chilli flakes', qty: 'a pinch' }, { name: 'Lemon', qty: '1/4' }
+    ],
+    steps: [
+      'Steam or boil the edamame for 4–5 minutes.',
+      'Drain well and toss with sea salt and chilli flakes.',
+      'Add a squeeze of lemon.',
+      'Serve warm as a high-protein snack.'
+    ]
+  },
+  {
+    name: 'Tamago Rice Bowl', cuisine: 'Japanese', meal: 'Tiffin',
+    diets: ['nonveg', 'eggetarian'], allergens: ['eggs', 'soy', 'sesame'],
+    cal: 380, p: 20, c: 46, f: 12, time: 15,
+    ingredients: [
+      { name: 'Eggs', qty: '3' }, { name: 'Cooked rice', qty: '150 g' },
+      { name: 'Soy sauce', qty: '1 tsp' }, { name: 'Spring onion', qty: '2 stalks' },
+      { name: 'Sesame oil', qty: '1 tsp' }
+    ],
+    steps: [
+      'Whisk the eggs with soy sauce and a pinch of sugar.',
+      'Cook them gently in a small oiled pan, stirring into soft curds.',
+      'Spoon over the warm rice.',
+      'Finish with spring onion and a few drops of sesame oil.'
+    ]
+  },
+  {
+    name: 'Tofu Miso Noodle Soup', cuisine: 'Japanese', meal: 'Lunch',
+    diets: ['nonveg', 'eggetarian', 'vegetarian', 'vegan'], allergens: ['soy', 'gluten'],
+    cal: 390, p: 20, c: 48, f: 12, time: 15,
+    ingredients: [
+      { name: 'Firm tofu', qty: '120 g, cubed' }, { name: 'Noodles', qty: '150 g, cooked' },
+      { name: 'Miso paste', qty: '1 tbsp' }, { name: 'Pak choi', qty: '100 g' },
+      { name: 'Vegetable stock', qty: '400 ml' }
+    ],
+    steps: [
+      'Warm the stock and add the pak choi for 3 minutes.',
+      'Whisk in the miso paste, then add the tofu.',
+      'Place the cooked noodles in a bowl and ladle over the broth.',
+      'Finish with spring onion and chilli oil if you like heat.'
+    ]
+  }
+];

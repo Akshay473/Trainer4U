@@ -1,0 +1,22 @@
+{
+  "name": "trainer4u",
+  "version": "2.0.0",
+  "description": "Trainer4U — a complete client-side fitness coaching app in a single HTML file",
+  "main": "index.html",
+  "scripts": {
+    "start": "python3 -m http.server 3000",
+    "serve": "npx serve -l 3000",
+    "dev": "python3 -m http.server 3000"
+  },
+  "keywords": [
+    "fitness",
+    "trainer",
+    "nutrition",
+    "workout",
+    "coaching",
+    "localstorage",
+    "vanilla-javascript"
+  ],
+  "author": "Trainer4U",
+  "license": "MIT"
+}

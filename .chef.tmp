@@ -1,0 +1,154 @@
+/* ---------- Chef ---------- */
+function renderChef() {
+  const u = state.user;
+  const p = u.profile;
+  const t = targets(u);
+  const safeRecipes = RECIPES.filter(recipe => fitsDiet(recipe, p.diet) && allergenFree(recipe, p.allergies));
+  const filters = state.chefFilters;
+  const filtered = safeRecipes.filter(recipe => {
+    const cuisineOk = filters.cuisine === 'All' || recipe.cuisine === filters.cuisine;
+    const dietOk = filters.diet === 'All' || (recipe.diets || []).includes(filters.diet);
+    const mealOk = filters.meal === 'All' || recipe.meal === filters.meal;
+    return cuisineOk && dietOk && mealOk;
+  });
+  const mealCalories = t.calories / 3;
+  const suggestions = [...filtered].sort((a, b) => {
+    const aScore = Math.abs(a.cal - mealCalories) - a.p * 2;
+    const bScore = Math.abs(b.cal - mealCalories) - b.p * 2;
+    return aScore - bScore;
+  });
+  const filterBits = [];
+  if (p.diet) filterBits.push(`${DIET_LABELS[normalizeDiet(p.diet)] || 'Non-Vegetarian'} preference`);
+  if (p.allergies) filterBits.push(`excluding ${p.allergies}`);
+  const activeFilters = [
+    filters.cuisine !== 'All' ? filters.cuisine : '',
+    filters.diet !== 'All' ? (DIET_FILTERS.find(([value]) => value === filters.diet) || [])[1] : '',
+    filters.meal !== 'All' ? filters.meal : ''
+  ].filter(Boolean);
+  const matchResults = state.chefIngredients
+    ? safeRecipes.map(recipe => ({ recipe, match: recipeMatchScore(recipe, state.chefIngredients) }))
+      .filter(item => item.match && item.match.matched.length > 0)
+      .sort((a, b) => b.match.ratio - a.match.ratio || b.match.matched.length - a.match.matched.length)
+      .slice(0, 5)
+    : [];
+
+  return `
+    <div class="section-head">
+      <div>
+        <h1>Chef</h1>
+        <p class="sub">${RECIPES.length} dishes across ${CUISINES.length - 1} cuisines. Filter by cuisine, diet and meal type, or cook with what you already have. Every recipe shows calories, macros, prep time, ingredients and step-by-step instructions.</p>
+      </div>
+      <span class="pill accent">${safeRecipes.length} safe recipes</span>
+    </div>
+
+    ${filterBits.length ? `<div class="alert info"><div class="alert-title">Filtered for your profile</div><p>${esc(filterBits.join(' · '))}. Recipes outside your diet or containing a listed allergen are hidden before the filters below are applied. Always read labels on packaged ingredients — recipes are guidance, not allergy guarantees.</p></div>` : ''}
+
+    <div class="card">
+      <div class="card-head"><h2>Find a dish</h2><span class="pill">${filtered.length} of ${safeRecipes.length} safe recipes</span></div>
+      <div class="filter-bar">
+        <div class="field">
+          <label for="chef-cuisine">Cuisine</label>
+          <select id="chef-cuisine" data-change="chef-cuisine">
+            ${CUISINES.map(item => `<option value="${esc(item)}" ${selected(item, filters.cuisine)}>${item === 'All' ? 'All cuisines' : esc(item)}</option>`).join('')}
+          </select>
+        </div>
+        <div class="field">
+          <label for="chef-diet">Diet</label>
+          <select id="chef-diet" data-change="chef-diet">
+            ${DIET_FILTERS.map(([value, label]) => `<option value="${esc(value)}" ${selected(value, filters.diet)}>${esc(label)}</option>`).join('')}
+          </select>
+        </div>
+        <div class="field">
+          <label for="chef-meal">Meal type</label>
+          <select id="chef-meal" data-change="chef-meal">
+            ${MEAL_TYPES.map(item => `<option value="${esc(item)}" ${selected(item, filters.meal)}>${item === 'All' ? 'All meals' : esc(item)}</option>`).join('')}
+          </select>
+        </div>
+      </div>
+      <div class="filter-summary">
+        ${activeFilters.length
+          ? activeFilters.map(item => `<span class="chip good">${esc(item)}</span>`).join('') + '<button class="btn btn-xs btn-ghost" data-action="clear-chef-filters">Clear filters</button>'
+          : '<span class="tiny muted">Showing every recipe that fits your diet and allergy profile. Combine filters to narrow it down.</span>'}
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><h2>Cook with what I have</h2></div>
+      <form data-form="chef-ingredients">
+        <div class="form-grid">
+          <div class="field span-2">
+            <label for="chef-ingredients">Your ingredients (separate with commas)</label>
+            <input id="chef-ingredients" type="text" name="ingredients" value="${esc(state.chefIngredients)}" placeholder="e.g. chicken, rice, broccoli, yogurt">
+          </div>
+        </div>
+        <div class="btn-row" style="margin-top:10px">
+          <button class="btn btn-primary btn-sm" type="submit">Find recipes</button>
+          ${state.chefIngredients ? '<button class="btn btn-ghost btn-sm" type="button" data-action="clear-ingredients">Clear</button>' : ''}
+        </div>
+      </form>
+      ${state.chefIngredients ? `
+        <div style="margin-top:16px">
+          ${matchResults.length ? matchResults.map(({ recipe, match }) => `
+            <div class="card tight" style="margin-top:9px">
+              <div class="recipe-top">
+                <div>
+                  <div class="recipe-name">${esc(recipe.name)}</div>
+                  <div class="tiny muted">${esc(recipe.cuisine)} · ${esc(recipe.meal)} · ${recipe.time} min</div>
+                </div>
+                <span class="badge ${match.ratio === 1 ? 'good' : 'warn'}">${match.matched.length}/${recipe.ingredients.length} ingredients</span>
+              </div>
+              <div class="match-box">
+                ${match.matched.map(item => `<span class="chip good">Have: ${esc(item.name)}</span>`).join('')}
+                ${match.missing.map(item => `<span class="chip miss">Need: ${esc(item.name)}</span>`).join('')}
+              </div>
+              <div class="btn-row" style="margin-top:9px">
+                <button class="btn btn-sm btn-soft" data-action="recipe-open" data-index="${RECIPES.indexOf(recipe)}">Open recipe</button>
+              </div>
+            </div>`).join('') : `<div class="empty">No matches yet. Try simpler ingredient names (e.g. "rice" instead of "leftover rice").</div>`}
+        </div>` : ''}
+    </div>
+
+    <div class="section-head" style="margin-top:22px">
+      <div><h2>${activeFilters.length ? 'Matching recipes' : 'All safe recipes'}</h2><p class="sub">Each recipe is roughly one meal (${Math.round(mealCalories)} kcal based on your daily target). Tap "Cook step by step" for cooking mode.</p></div>
+    </div>
+
+    <div class="grid grid-2">
+      ${suggestions.map(recipe => {
+        const idx = RECIPES.indexOf(recipe);
+        const dietTags = (recipe.diets || [])
+          .filter(diet => diet !== 'nonveg')
+          .map(diet => DIET_LABELS[diet] || diet)
+          .slice(0, 2);
+        return `
+        <div class="card recipe-card">
+          <div class="recipe-top">
+            <div>
+              <div class="recipe-name">${esc(recipe.name)}</div>
+              <div class="recipe-meta">
+                <span>${esc(recipe.cuisine)}</span>
+                <span>${esc(recipe.meal)}</span>
+                <span>${recipe.time} min</span>
+              </div>
+              <div class="tiny muted" style="margin-top:4px">${dietTags.join(' · ') || 'Non-Vegetarian'}</div>
+            </div>
+            <span class="pill accent">${recipe.cal} kcal</span>
+          </div>
+          <div class="recipe-macros">
+            <span class="chip">P ${recipe.p} g</span>
+            <span class="chip">C ${recipe.c} g</span>
+            <span class="chip">F ${recipe.f} g</span>
+          </div>
+          <div class="recipe-ing">${recipe.ingredients.slice(0, 4).map(item => `${esc(item.name)} ${esc(item.qty)}`).join(' · ')}</div>
+          <div class="recipe-actions">
+            <button class="btn btn-sm btn-primary" data-action="recipe-open" data-index="${idx}">Cook step by step</button>
+          </div>
+        </div>`;
+      }).join('')}
+      ${suggestions.length ? '' : '<div class="card"><div class="empty">No recipes match those filters. Try clearing one filter or widening your search.</div></div>'}
+    </div>
+
+    <div class="card">
+      <div class="card-head"><h2>Macro-fitting tips</h2></div>
+      <p class="small muted">Use a palm of protein at each meal, a fist of vegetables, a cupped hand of carbs and a thumb of fats. If a recipe is below your protein target, add Greek yogurt, tofu, chicken, fish or a portion of protein powder. If it is above your calorie target, halve the oil, nuts or carbs rather than the protein.</p>
+    </div>`;
+}

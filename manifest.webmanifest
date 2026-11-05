@@ -1,0 +1,24 @@
+{
+  "name": "Trainer4U",
+  "short_name": "Trainer4U",
+  "theme_color": "#0F172A",
+  "background_color": "#0F172A",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "description": "Client-side fitness coaching app — workouts, nutrition, recipes, progress tracking",
+  "start_url": ".",
+  "icons": [
+    {
+      "src": "icons/manifest-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/manifest-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}

@@ -5,8 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="description" content="Trainer4U — a private, local-only fitness coaching app for workouts, nutrition, recipes, wellness and progress.">
 <meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#0F172A">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="#0F172A">
+<link rel="apple-touch-icon" href="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzIiIGhlaWdodD0iMzQiIHZpZXdPbWb7XS1tZ2V5PSJtaWRlYm9vayI+PC9mcG9zdGF0dAIl IllaWGxsYi5jcnIgIiI+IiI8L3N2Zz4=">
 <title>Trainer4U — Your pocket fitness coach</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='112' fill='%230F172A'/%3E%3Cg transform='rotate(-45 256 256)'%3E%3Cpath d='M116 256a140 140 0 0 1 280 0' fill='none' stroke='%23881337' stroke-width='24'/%3E%3Cpath d='M396 256a140 140 0 0 1-280 0' fill='none' stroke='%23E8F5E9' stroke-width='24'/%3E%3C/g%3E%3Crect x='216' y='216' width='80' height='80' rx='24' fill='%23E8F5E9' transform='rotate(45 256 256)'/%3E%3Crect x='241' y='241' width='30' height='30' rx='8' fill='%23881337' transform='rotate(45 256 256)'/%3E%3C/svg%3E">
+<link rel="manifest" href="./manifest.webmanifest">
 <style>
 /* ============================================================
    Trainer4U — all styling is in this single file.
@@ -257,6 +261,7 @@ input:focus, select:focus, textarea:focus { border-color: color-mix(in srgb, var
 select { appearance: none; background-image: linear-gradient(45deg, transparent 50%, var(--muted) 50%), linear-gradient(135deg, var(--muted) 50%, transparent 50%); background-position: calc(100% - 16px) 18px, calc(100% - 11px) 18px; background-size: 5px 5px, 5px 5px; background-repeat: no-repeat; padding-right: 30px; }
 .form-grid { display: grid; gap: 12px; }
 .form-error { color: var(--bad); background: color-mix(in srgb, var(--bad) 15%, var(--panel-2)); border-radius: 9px; padding: 8px 10px; font-size: .8rem; font-weight: 600; }
+.field-error { display: block; color: var(--bad); font-size: .75rem; font-weight: 600; margin-top: 5px; }
 .form-note { color: var(--muted); font-size: .74rem; }
 .check-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(135px, 1fr)); gap: 7px; }
 .check {
@@ -482,6 +487,7 @@ tr:last-child td { border-bottom: 0; }
 const DB_KEY = 'trainer4u_db_v2';
 const SESSION_KEY = 'trainer4u_session_v2';
 const THEME_KEY = 'trainer4u_theme_v2';
+const SCHEMA_VERSION = 2; // increment when data structure changes
 
 const app = document.getElementById('app');
 
@@ -584,18 +590,29 @@ const EQUIPMENT = [
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => Array.from(root.querySelectorAll(selector));
 
+// <logic:start>
 function clamp(value, min, max) {
   return Math.min(max, Math.max(min, Number(value)));
 }
+// <logic:end>
+// <logic:start>
 function round(value, digits = 1) {
   const factor = 10 ** digits;
   return Math.round((Number(value) + Number.EPSILON) * factor) / factor;
 }
+// <logic:end>
+// <logic:start>
 function esc(value) {
   return String(value ?? '').replace(/[&<>"']/g, char => ({
     '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
   })[char]);
 }
+/* alias — same escaping as esc(), exposed for clarity */
+function escapeHTML(value) {
+  return esc(value);
+}
+// <logic:end>
+
 function uid() {
   return `id-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 }
@@ -942,17 +959,71 @@ function blankLogs() {
 function loadDB() {
   try {
     const raw = localStorage.getItem(DB_KEY);
-    if (!raw) return { profiles: {} };
+    if (!raw) return { profiles: {}, schemaVersion: 0 };
     const parsed = JSON.parse(raw);
-    if (!parsed || typeof parsed !== 'object') return { profiles: {} };
+    if (!parsed || typeof parsed !== 'object') return { profiles: {}, schemaVersion: 0 };
+    // Initialize schemaVersion if missing (backwards compatibility)
+    if (parsed.schemaVersion === undefined) parsed.schemaVersion = 0;
+    // Migrate to current schema version
+    if (parsed.schemaVersion < SCHEMA_VERSION) {
+      parsed = migrateDB(parsed);
+    }
     if (!parsed.profiles || typeof parsed.profiles !== 'object') parsed.profiles = {};
     return parsed;
   } catch (err) {
-    return { profiles: {} };
+    return { profiles: {}, schemaVersion: 0 };
+  }
+}
+
+function migrateDB(parsed) {
+  // Schema v0 → v1: ensure profile fields exist for all users
+  // This is a no-op for v1 → v2 since we've been using v2 key, but keep for future use
+  if (parsed.schemaVersion < 1) {
+    // Ensure all profiles have the expected structure
+    const defaults = {
+      name: '', age: null, sex: '', height: null, weight: null,
+      targetWeight: null, startWeight: null, activity: '', goal: '',
+      diet: '', allergies: '', injuries: '', equipment: ['bodyweight'],
+      daysPerWeek: null, experience: 'beginner'
+    };
+    // Migrate existing profiles
+    if (parsed.profiles) {
+      Object.values(parsed.profiles).forEach(user => {
+        user.profile = { ...defaults, ...user.profile };
+      });
+    }
+    parsed.schemaVersion = 1;
+  }
+  // Schema v1 → v2: add schemaVersion field if missing
+  if (parsed.schemaVersion < 2) {
+    // No structural changes v1→v2 yet, just ensure version is set
+    parsed.schemaVersion = 2;
+  }
+  return parsed;
+}
+
+function loadDB() {
+  try {
+    const raw = localStorage.getItem(DB_KEY);
+    if (!raw) return { profiles: {}, schemaVersion: 0 };
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object') return { profiles: {}, schemaVersion: 0 };
+    // Initialize schemaVersion if missing (backwards compatibility)
+    if (parsed.schemaVersion === undefined) parsed.schemaVersion = 0;
+    // Migrate to current schema version
+    if (parsed.schemaVersion < SCHEMA_VERSION) {
+      parsed = migrateDB(parsed);
+    }
+    if (!parsed.profiles || typeof parsed.profiles !== 'object') parsed.profiles = {};
+    return parsed;
+  } catch (err) {
+    return { profiles: {}, schemaVersion: 0 };
   }
 }
 
 function saveDB() {
+  // Embed schema version so future migrations can detect old data
+  state.db.schemaVersion = SCHEMA_VERSION;
   try {
     localStorage.setItem(DB_KEY, JSON.stringify(state.db));
   } catch (err) {
@@ -1240,6 +1311,42 @@ async function seedDemoProfile() {
 /* ---------------------------------------------------------------------------
    Coaching maths
    --------------------------------------------------------------------------- */
+// <logic:start>
+function weightTrendPerWeek(weights, nowMs) {
+  const sorted = weights.filter(w => w && w.date && Number.isFinite(Number(w.kg)))
+    .slice().sort((a,b)=>a.date.localeCompare(b.date));
+  if (sorted.length < 2) return null;
+  const first = sorted[0], last = sorted[sorted.length-1];
+  let spanDays = Math.round((new Date(last.date) - new Date(first.date)) / 86400000);
+  if (!Number.isFinite(spanDays) || spanDays < 7) return null;
+  const perWeek = ((Number(last.kg) - Number(first.kg)) / spanDays) * 7;
+  return { perWeek: Number(perWeek.toFixed(2)), spanDays };
+}
+function weightTrendCategory(goal, perWeek) {
+  if (perWeek == null) return 'no-data';
+  const wrongWay = (goal === 'lose' && perWeek > 0.25) || ((goal === 'gain' || goal === 'build') && perWeek < -0.25);
+  return wrongWay ? 'wrong-way' : 'on-track';
+}
+function calorieDrift(foodDays, targetCalories, goal) {
+  if (!foodDays || foodDays.length < 3) return null;
+  const avg = foodDays.reduce((s,d)=>s+Number(d.calories||0),0)/foodDays.length;
+  let adjustment = 0;
+  if (goal === 'lose' && avg > targetCalories + 250) adjustment = -100;
+  else if (avg < targetCalories - 350) adjustment = 150;
+  return { avg: Math.round(avg), adjustment };
+}
+function proteinGap(foodDays, targetProtein) {
+  if (!foodDays || foodDays.length < 3) return null;
+  const avg = foodDays.reduce((s,d)=>s+Number(d.protein||0),0)/foodDays.length;
+  return { avg: Math.round(avg), gap: avg < targetProtein*0.7 ? 10 : 0 };
+}
+function sleepDeficit(entries) {
+  if (!entries || !entries.length) return null;
+  const avg = entries.reduce((s,e)=>s+Number(e.hours||0),0)/entries.length;
+  return { avg: Number(avg.toFixed(1)), deficit: avg < 6.5 };
+}
+// <logic:end>
+// <logic:start>
 function totalsForEntries(entries) {
   return entries.reduce((sum, entry) => {
     sum.calories += Number(entry.calories) || 0;
@@ -1249,22 +1356,27 @@ function totalsForEntries(entries) {
     return sum;
   }, { calories: 0, protein: 0, carbs: 0, fat: 0 });
 }
+// <logic:end>
 
 function getCaloriesForDate(user, date) {
   return totalsForEntries(user.logs.food.filter(entry => entry.date === date));
 }
 
+// <logic:start>
 function sortedWeights(user) {
   return [...user.logs.weights]
     .filter(entry => entry && entry.date)
     .sort((a, b) => a.date.localeCompare(b.date));
 }
+// <logic:end>
 
+// <logic:start>
 function currentWeight(user) {
   const weights = sortedWeights(user);
   if (weights.length) return Number(weights[weights.length - 1].kg) || 0;
   return Number(user.profile.weight) || 0;
 }
+// <logic:end>
 
 function weightProgress(user) {
   const weights = sortedWeights(user);
@@ -1285,10 +1397,12 @@ function weightProgress(user) {
   };
 }
 
+// <logic:start>
 function workoutsLast7(user) {
   const from = dateOffset(-6);
   return user.logs.workouts.filter(workout => workout.date >= from && workout.date <= today());
 }
+// <logic:end>
 
 function loggingStreak(user) {
   let streak = 0;
@@ -1305,13 +1419,16 @@ function loggingStreak(user) {
   return streak;
 }
 
+// <logic:start>
 function sleepAverage(user) {
   const from = dateOffset(-13);
   const entries = user.logs.sleep.filter(entry => entry.date >= from);
   if (!entries.length) return null;
   return entries.reduce((sum, entry) => sum + Number(entry.hours || 0), 0) / entries.length;
 }
+// <logic:end>
 
+// <logic:start>
 function loggedDays(user, days = 7) {
   const result = [];
   for (let i = days - 1; i >= 0; i--) {
@@ -1323,13 +1440,17 @@ function loggedDays(user, days = 7) {
   }
   return result;
 }
+// <logic:end>
 
+// <logic:start>
 function bmiFor(user) {
   const height = Number(user.profile.height) || 0;
   const weight = currentWeight(user);
   if (!height || !weight) return 0;
   return weight / ((height / 100) ** 2);
 }
+// <logic:end>
+// <logic:start>
 function bmiCategory(bmi) {
   if (!bmi) return { label: 'Not enough data', cls: '' };
   if (bmi < 18.5) return { label: 'Underweight range', cls: 'warn' };
@@ -1337,6 +1458,7 @@ function bmiCategory(bmi) {
   if (bmi < 30) return { label: 'Overweight range', cls: 'warn' };
   return { label: 'Obesity range', cls: 'bad' };
 }
+// <logic:end>
 function hydrationTarget(user) {
   const weight = currentWeight(user) || Number(user.profile.weight) || 70;
   return Math.round(clamp((weight * 35) / 250, 6, 16));
@@ -1359,12 +1481,38 @@ function targetWarnings(user) {
   return warnings;
 }
 
+// <logic:start>
+/**
+ * Calculate Basal Metabolic Rate (Mifflin-St Jeor) and Total Daily Energy Expenditure.
+ * @param {object} user - User state object with profile data
+ * @returns {object} BMR, TDEE, and derived targets (calories, protein, carbs, fat)
+ *
+ * BMR formula (Mifflin-St Jeor):
+ *   Male:   10 × weight(kg) + 6.25 × height(cm) − 5 × age(y) + 5
+ * Female: 10 × weight(kg) + 6.25 × height(cm) − 5 × age(y) − 161
+ *
+ * TDEE = BMR × activity multiplier
+ *   Sedentary: 1.2 | Light: 1.375 | Moderate: 1.55 | Active: 1.725 | Very active: 1.9
+ *
+ * Macro splits (after TDEE):
+ *   Calorie delta: lose −500, gain +400, build +250, maintain 0
+ *   Protein:     lose/maintain 1.6g/kg, build 1.8g/kg, lose/build 2.0g/kg
+ *   Fat:         27% of calories ÷ 9 kcal/g, clamped to [35, 130]g
+ *   Carbs:       (calories − protein×4 − fat×9) ÷ 4, minimum 50g
+ *
+ * A calorie target below safeMin is flagged as `unsafe` and raised to the safety floor.
+ */
 function baseTargets(user) {
   const p = user.profile || {};
   const weight = currentWeight(user) || Number(p.weight) || 70;
   const height = Number(p.height) || 170;
   const age = Number(p.age) || 30;
   const sexAdjust = p.sex === 'male' ? 5 : p.sex === 'female' ? -161 : -78;
+  /**
+   * Mifflin-St Jeor BMR formula:
+   *   Male:   10 × weight(kg) + 6.25 × height(cm) − 5 × age(y) + 5
+   * Female: 10 × weight(kg) + 6.25 × height(cm) − 5 × age(y) − 161
+   */
   const bmr = 10 * weight + 6.25 * height - 5 * age + sexAdjust;
   const tdee = bmr * (ACTIVITY_MULTIPLIERS[p.activity] || 1.55);
   const goalDelta = p.goal === 'lose' ? -500 : p.goal === 'gain' ? 400 : p.goal === 'build' ? 250 : 0;
@@ -1388,7 +1536,27 @@ function baseTargets(user) {
     goalDelta
   };
 }
+// <logic:end>
 
+// <logic:start>
+/**
+ * Run the course-correction engine on user data.
+ * Inspects workout consistency, calorie drift, protein intake, sleep, and weight trend.
+ * Produces a set of alerts with specific fixes, and automatic adjustments to
+ * the weekly plan and daily calorie/macro targets.
+ *
+ * Inputs (from user state):
+ *   - profile: age, sex, height, weight, goal, diet, allergies, injuries
+ *   - logs: workouts, food entries (with dates), weights, measurements, sleep, hydration, symptoms
+ *   - settings: theme, trainerMode
+ *
+ * Outputs:
+ *   - alerts: array of { level, title, body, fix } objects
+ *   - adjustments: { days, sets, calorie, protein } to apply to plan/targets
+ *
+ * Alert levels: 'good' (positive reinforcement), 'info' (gentle nudge),
+ *   'warn' (attention needed), 'bad' (serious concern)
+ */
 function getInsights(user) {
   const p = user.profile || {};
   const base = baseTargets(user);
@@ -1502,7 +1670,17 @@ function getInsights(user) {
 
   return { alerts, adjustments };
 }
+// <logic:end>
 
+/**
+ * Apply insight-based adjustments to the base targets.
+ * @param {object} user - User state object with profile data
+ * @returns {object} Final calorie/macro targets with adjustment flags
+ *
+ * Takes the base BMR/TDEE targets and applies automatic course corrections
+ * from the insights engine (calorie drift, protein gaps, missed workouts,
+ * sleep deficits, weight-trend warnings).
+ */
 function targets(user) {
   const base = baseTargets(user);
   const insights = getInsights(user);
@@ -1674,7 +1852,7 @@ function renderDashboard() {
         <div>
           <div class="hero-greeting">${greeting}, ${esc(p.name || u.username)}</div>
           <h1>${goalHeadlines[p.goal] || goalHeadlines.maintain}</h1>
-          <p class="hero-sub">${p.daysPerWeek} training day${p.daysPerWeek === 1 ? '' : 's'} planned · ${plan.days} scheduled this week · ${DIET_LABELS[p.diet] || p.diet} kitchen · ${plan.mode === 'home' ? 'home' : 'gym'} plan.</p>
+          <p class="hero-sub">${p.daysPerWeek} training day${p.daysPerWeek === 1 ? '' : 's'} planned · ${plan.days} scheduled this week · ${esc(DIET_LABELS[p.diet] || p.diet)} kitchen · ${plan.mode === 'home' ? 'home' : 'gym'} plan.</p>
         </div>
         <span class="pill accent">${GOAL_LABELS[p.goal] || 'Maintain'}</span>
       </div>
@@ -3160,6 +3338,33 @@ function recoveryExercises() {
   ];
 }
 
+/**
+ * Build the weekly workout plan for a user.
+ * Determines the day schedule, exercise selection, and automatic adjustments
+ * based on the user's profile, goals, available equipment, training history,
+ * and course-correction insights (missed workouts, calorie drift, sleep, weight trend).
+ *
+ * @param {object} user - User state object with profile and logs
+ * @returns {object} Plan result: { days, trainingDays, schedule, adjustments, mode, injuries }
+ *
+ * Plan logic:
+ *   1. Get course-correction insights (missed workouts, calorie drift, protein, sleep)
+ *   2. Requested training days → adjusted days (may be reduced if many missed)
+ *   3. Select template based on available days (1–7)
+ *   4. Assign exercises to each day respecting:
+ *      - Goal (lose/maintain/build → rep ranges)
+ *      - Experience (beginner: 3 sets, intermediate: 4 sets)
+ *      - Equipment owned (bodyweight + user-specified)
+ *      - Injury-aware filtering (avoid movements linked to noted injuries)
+ *   5. Prescribe set/reps/rest and form cues from the exercise database
+ *   6. Assign daily finishers (walk, cool-down, or optional walk)
+ *
+ * Adjustments applied from insights:
+ *   - days: −1 or −2 if too many missed workouts this week
+ *   - sets: −1 if sleep < 6.5h average
+ *   - calorie: ±100 if weekly average calories drift from target
+ *   - protein: +10g if average protein < 70% of target
+ */
 function buildPlan(user) {
   const p = user.profile;
   const mode = planMode();
@@ -4325,28 +4530,104 @@ async function handleSignup(formData) {
   toast('Profile created. Let’s set up your coaching.');
 }
 
+// <logic:start>
+function validateOnboarding(fields) {
+  const errors = [];
+  const isNum = v => v != null && String(v).trim() !== '' && Number.isFinite(Number(v));
+  const age = isNum(fields.age) ? Number(fields.age) : NaN;
+  const height = isNum(fields.height) ? Number(fields.height) : NaN;
+  const weight = isNum(fields.weight) ? Number(fields.weight) : NaN;
+  if (!Number.isFinite(age) || age < 12 || age > 100) errors.push(['age', 'Please enter a realistic age (12–100).']);
+  if (!Number.isFinite(height) || height < 120 || height > 230) errors.push(['height', 'Please enter a realistic height (120–230 cm).']);
+  if (!Number.isFinite(weight) || weight < 30 || weight > 300) errors.push(['weight', 'Please enter a realistic weight (30–300 kg).']);
+  let targetWeight = null;
+  const rawTarget = fields.targetWeight != null ? String(fields.targetWeight).trim() : '';
+  if (rawTarget !== '') {
+    const tw = Number(rawTarget);
+    if (!Number.isFinite(tw) || tw < 30 || tw > 300) {
+      errors.push(['targetWeight', 'Target weight must be within 30–300 kg.']);
+    } else {
+      targetWeight = tw;
+      if (Number.isFinite(weight)) {
+        if (fields.goal === 'lose' && tw >= weight) errors.push(['targetWeight', 'For a weight-loss goal, your target must be lower than your current weight.']);
+        else if ((fields.goal === 'gain' || fields.goal === 'build') && tw <= weight) errors.push(['targetWeight', 'For a gain / build goal, your target must be higher than your current weight.']);
+      }
+    }
+  }
+  return { errors, values: { age, height, weight, targetWeight } };
+}
+// <logic:end>
 function handleOnboarding(form, formData) {
   const wasEditing = state.editingProfile;
   const equipment = $$('input[name="equipment"]:checked', form).map(input => input.value);
   if (!equipment.length) equipment.push('bodyweight');
-  const age = Number(formData.get('age')) || 30;
-  const height = Number(formData.get('height')) || 175;
-  const weight = Number(formData.get('weight')) || 80;
-  const targetWeightRaw = String(formData.get('targetWeight') || '').trim();
+
+  // ---- Onboarding validation (rejects unrealistic values, inline errors) ----
+  const rawAge = String(formData.get('age') || '').trim();
+  const rawHeight = String(formData.get('height') || '').trim();
+  const rawWeight = String(formData.get('weight') || '').trim();
+  const rawTarget = String(formData.get('targetWeight') || '').trim();
+  const rawGoal = String(formData.get('goal') || '');
+
+  const formError = (id, message) => {
+    const field = form.querySelector(`[name="${id}"]`);
+    if (field) {
+      const wrapper = field.closest('.field');
+      if (wrapper) {
+        const errBox = wrapper.querySelector('.field-error');
+        if (errBox) {
+          errBox.textContent = message;
+          return;
+        }
+        const span = document.createElement('span');
+        span.className = 'field-error';
+        span.role = 'alert';
+        span.textContent = message;
+        wrapper.appendChild(span);
+      }
+      if (field.setCustomValidity) field.setCustomValidity(message);
+    }
+  };
+  const clearFormErrors = () => {
+    form.querySelectorAll('.field-error').forEach(el => el.remove());
+    form.querySelectorAll('[name]').forEach(el => { if (el.setCustomValidity) el.setCustomValidity(''); });
+  };
+  clearFormErrors();
+
+  const validation = validateOnboarding({
+    age: rawAge,
+    height: rawHeight,
+    weight: rawWeight,
+    targetWeight: rawTarget,
+    goal: rawGoal
+  });
+  const errors = validation.errors;
+
+  if (errors.length) {
+    errors.forEach(([name, msg]) => formError(name, msg));
+    const first = form.querySelector('.field-error');
+    if (first) first.focus ? first.focus() : null;
+    return; // do not save — will re-render validation state
+  }
+
+  const age = validation.values.age;
+  const height = validation.values.height;
+  const weight = validation.values.weight;
+  const targetWeight = validation.values.targetWeight;
   const profile = {
     name: String(formData.get('name') || '').trim() || state.user.username,
-    age: clamp(age, 14, 90),
+    age: age,
     sex: String(formData.get('sex') || 'other'),
-    height: clamp(height, 120, 230),
-    weight: clamp(weight, 30, 300),
-    targetWeight: targetWeightRaw ? clamp(Number(targetWeightRaw), 30, 300) : null,
+    height: height,
+    weight: weight,
+    targetWeight,
     activity: String(formData.get('activity') || 'moderate'),
-    goal: String(formData.get('goal') || 'maintain'),
+    goal: rawGoal || 'maintain',
     diet: normalizeDiet(formData.get('diet') || 'nonveg'),
     allergies: String(formData.get('allergies') || '').trim(),
     injuries: String(formData.get('injuries') || '').trim(),
     equipment,
-    daysPerWeek: clamp(Number(formData.get('daysPerWeek')) || 3, 1, 7),
+    daysPerWeek: clamp(safeNum(formData.get('daysPerWeek'), 3), 1, 7),
     experience: String(formData.get('experience') || 'beginner'),
     // A brand-new profile starts its progress bar at the weight entered.
     // Editing keeps the original starting weight so progress stays meaningful.
@@ -4832,6 +5113,19 @@ async function init() {
 
 // The markup lives inside this same file, so the DOM is ready when this runs.
 init();
+
+// Register service worker only on http/https (not file://)
+if ('serviceWorker' in navigator && window.location.protocol !== 'file:') {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js')
+      .then(registration => {
+        console.log('SW registered: scope', registration.scope);
+      })
+      .catch(registrationError => {
+        console.log('SW registration failed: ', registrationError);
+      });
+  });
+}
 </script>
 </body>
 </html>

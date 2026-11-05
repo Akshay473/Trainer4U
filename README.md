@@ -2,7 +2,7 @@
 
 **Your pocket fitness coach — completely client-side, no backend, no libraries.**
 
-[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 [![Live Demo](https://img.shields.io/badge/live--demo-github--pages-blue.svg)](https://akshay473.github.io/Trainer4U/)
 [![GitHub Pages](https://img.shields.io/badge/deployed%20on-GitHub%20Pages-lightgrey.svg)](https://akshay473.github.io/Trainer4U/)
 [![Vanilla JS](https://img.shields.io/badge/vanillaJS-yes-orange.svg)]()
@@ -182,3 +182,8 @@ Trainer4U provides general fitness and wellness information for healthy adults. 
 If you have suggestions, bug reports, or feature requests, please share them at: [https://forms.gle/5zySDBpFBDyY6dar8](https://forms.gle/5zySDBpFBDyY6dar8)
 
 Every user's input helps shape the project and makes Trainer4U better for the community.
+## License
+
+Copyright (c) 2026 Akshay.
+
+Licensed under the Apache License, Version 2.0. See the [LICENSE](LICENSE) file for details.

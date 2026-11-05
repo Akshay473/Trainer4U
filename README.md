@@ -18,18 +18,6 @@
 
 ---
 
-## Screenshots
-
-![Dashboard](/docs/screenshots/dashboard.png)
-![Trainer](/docs/screenshots/trainer.png)
-![Nutritionist](/docs/screenshots/nutrition.png)
-![Chef](/docs/screenshots/chef.png)
-![Progress](/docs/screenshots/progress.png)
-
-*Demo GIF placeholder — capture a short GIF of the dashboard interacting with the trainer, nutritionist, and chef sections.*
-
----
-
 ## Features
 
 | Feature | Description |

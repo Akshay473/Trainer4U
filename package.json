@@ -1,12 +1,13 @@
 {
   "name": "trainer4u",
-  "version": "2.0.0",
-  "description": "Trainer4U — a complete client-side fitness coaching app in a single HTML file",
+  "version": "2026.11.05",
+  "description": "Trainer4U — a client-side fitness coaching app with workout plans, nutrition, recipes, and progress tracking. Runs entirely in the browser with localStorage and no backend.",
   "main": "index.html",
   "scripts": {
     "start": "python3 -m http.server 3000",
     "serve": "npx serve -l 3000",
-    "dev": "python3 -m http.server 3000"
+    "test": "node test.js",
+    "build": "echo \"No build step — single file app\""
   },
   "keywords": [
     "fitness",
@@ -15,8 +16,13 @@
     "workout",
     "coaching",
     "localstorage",
-    "vanilla-javascript"
+    "vanilla-javascript",
+    "pwa"
   ],
-  "author": "Trainer4U",
-  "license": "MIT"
+  "author": "Akshay",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Akshay473/Trainer4U.git"
+  }
 }

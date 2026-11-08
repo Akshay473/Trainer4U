@@ -1,84 +1,70 @@
-const CACHE_NAME = 'trainer4u-v2026.11.05';
+const CACHE_PREFIX = 'trainer4u-';
+const CACHE_NAME = `${CACHE_PREFIX}v2026.11.08`;
+const APP_SCOPE = new URL('./', self.location.href);
 const APP_SHELL = [
   './',
   './index.html',
   './manifest.webmanifest',
-  './sw.js'
+  './sw.js',
+  './icons/manifest-192.png',
+  './icons/manifest-512.png'
 ];
 
-// Install event — cache the app shell
 self.addEventListener('install', event => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then(cache => {
-      return cache.addAll(APP_SHELL);
-    })
+    caches.open(CACHE_NAME)
+      .then(cache => cache.addAll(APP_SHELL))
+      .then(() => self.skipWaiting())
   );
-  self.skipWaiting();
 });
 
-// Activate event — clean up old caches
 self.addEventListener('activate', event => {
-  const cacheWhitelist = [CACHE_NAME];
   event.waitUntil(
-    caches.keys().then(cacheNames => {
-      return Promise.all(
-        cacheNames.map(cache => {
-          if (cacheWhitelist.indexOf(cache) === -1) {
-return caches.delete(cache);
-          }
-        })
-      );
-    })
+    caches.keys()
+      .then(cacheNames => Promise.all(
+        cacheNames
+          .filter(name => name.startsWith(CACHE_PREFIX) && name !== CACHE_NAME)
+          .map(name => caches.delete(name))
+      ))
+      .then(() => self.clients.claim())
   );
-  // Take control of all pages immediately
-  event.waitUntil(self.clients.claim());
 });
 
-// Fetch event — cache-first for app shell, network-first for data
-self.addEventListener('fetch', event => {
-  // Only serve same-origin requests
-  if (event.request.method !== 'GET' || !event.request.url.startsWith(self.location.origin)) {
-    return;
-  }
+function cacheable(response) {
+  return response && response.status === 200 && response.type === 'basic';
+}
 
-  // For navigation requests and HTML, use cache-first
-  if (event.request.mode === 'navigate' || event.request.headers.get('accept').includes('text/html')) {
+self.addEventListener('fetch', event => {
+  const request = event.request;
+  if (request.method !== 'GET') return;
+  const url = new URL(request.url);
+  if (url.origin !== APP_SCOPE.origin || !url.pathname.startsWith(APP_SCOPE.pathname)) return;
+
+  // Network-first HTML keeps deployed fixes fresh; cached HTML is the offline fallback.
+  if (request.mode === 'navigate' || request.headers.get('accept').includes('text/html')) {
     event.respondWith(
-      caches.match(event.request).then(cachedResponse => {
-        if (cachedResponse) {
-          return cachedResponse;
-        }
-        return fetch(event.request).then(networkResponse => {
-          // Don't cache non-GET or non-200 responses
-          if (!networkResponse || networkResponse.status !== 200 || networkResponse.type !== 'basic') {
-            return networkResponse;
+      fetch(request)
+        .then(response => {
+          if (cacheable(response)) {
+            const copy = response.clone();
+            event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.put(request, copy)));
           }
-          const responseToCache = networkResponse.clone();
-          caches.open(CACHE_NAME).then(cache => {
-            cache.put(event.request, responseToCache);
-          });
-          return networkResponse;
-        });
-      })
+          return response;
+        })
+        .catch(() => caches.match(request).then(cached => cached || caches.match('./index.html')))
     );
     return;
   }
 
-  // For other assets (CSS, JS, images), use cache-first
   event.respondWith(
-    caches.match(event.request).then(cachedResponse => {
-      if (cachedResponse) {
-        return cachedResponse;
-      }
-      return fetch(event.request).then(networkResponse => {
-        if (!networkResponse || networkResponse.status !== 200 || networkResponse.type !== 'basic') {
-          return networkResponse;
+    caches.match(request).then(cached => {
+      if (cached) return cached;
+      return fetch(request).then(response => {
+        if (cacheable(response)) {
+          const copy = response.clone();
+          event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.put(request, copy)));
         }
-        const responseToCache = networkResponse.clone();
-        caches.open(CACHE_NAME).then(cache => {
-          cache.put(event.request, responseToCache);
-        });
-        return networkResponse;
+        return response;
       });
     })
   );

@@ -5,10 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="description" content="Trainer4U — a private, local-only fitness coaching app for workouts, nutrition, recipes, wellness and progress.">
 <meta name="color-scheme" content="light dark">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-HYABpjW1IsOwh+MOpV8QDaFQTvMnnAZPW/FIjycd7jo='; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'">
 <meta name="theme-color" content="#0F172A">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="#0F172A">
-<link rel="apple-touch-icon" href="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzIiIGhlaWdodD0iMzQiIHZpZXdPbWb7XS1tZ2V5PSJtaWRlYm9vayI+PC9mcG9zdGF0dAIl IllaWGxsYi5jcnIgIiI+IiI8L3N2Zz4=">
+<link rel="apple-touch-icon" href="./icons/manifest-192.png">
 <title>Trainer4U — Your pocket fitness coach</title>
 <link rel="manifest" href="./manifest.webmanifest">
 <style>
@@ -28,11 +29,12 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
   --muted: #A8B3C7;
   --line: rgba(255, 255, 255, .12);
   --accent: #881337;
-  --accent-soft: rgba(136, 19, 55, .24);
-  --accent-ink: rgba(255, 255, 255, .9);
-  --good: #E8F5E9;
-  --warn: #881337;
-  --bad: #F3C9D5;
+  --accent-soft: rgba(253, 164, 175, .16);
+  --accent-ink: #FDA4AF;
+  --good: #4ADE80;
+  --good-soft: rgba(74, 222, 128, .14);
+  --warn: #FBBF24;
+  --bad: #FDA4AF;
   --chart-contrast: #0F172A;
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, .40);
   --shadow: 0 1px 2px rgba(0, 0, 0, .40), 0 18px 38px -18px rgba(0, 0, 0, .80);
@@ -46,14 +48,15 @@ html[data-theme="light"] {
   --panel: #E8F5E9;
   --panel-2: #F1F8F8;
   --text: #0F172A;
-  --muted: #6B7280;
-  --line: #E5E7EB;
+  --muted: #4B5563;
+  --line: #D8DEE8;
   --accent: #881337;
   --accent-soft: #FDE8F0;
   --accent-ink: #881337;
-  --good: #E8F5E9;
-  --warn: #881337;
-  --bad: #F3C9D5;
+  --good: #166534;
+  --good-soft: #DCFCE7;
+  --warn: #854D0E;
+  --bad: #BE123C;
   --chart-contrast: #0F172A;
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, .05);
   --shadow: 0 1px 2px rgba(0, 0, 0, .05), 0 14px 30px -18px rgba(0, 0, 0, .15);
@@ -65,11 +68,12 @@ html[data-theme="light"] {
   --panel: #E8F5E9;
   --panel-2: #F1F8F8;
   --text: #0F172A;
-  --muted: #57617A;
-  --line: #E3E7EE;
-  --good: #E8F5E9;
-  --warn: #881337;
-  --bad: #F3C9D5;
+  --muted: #4B5563;
+  --line: #D8DEE8;
+  --good: #166534;
+  --good-soft: #DCFCE7;
+  --warn: #854D0E;
+  --bad: #BE123C;
   --accent-ink: #881337;
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, .06);
   --shadow: 0 1px 2px rgba(0, 0, 0, .05), 0 16px 34px -20px rgba(0, 0, 0, .38);
@@ -224,21 +228,21 @@ button { cursor: pointer; }
   font-size: .73rem; font-weight: 700; white-space: nowrap;
 }
 .pill.accent { background: var(--accent-soft); color: var(--accent-ink); border-color: transparent; }
-.pill.good { background: color-mix(in srgb, var(--good) 90%, var(--panel)); color: var(--good); border-color: transparent; }
-.pill.warn { background: color-mix(in srgb, var(--warn) 90%, var(--panel)); color: var(--warn); border-color: transparent; }
-.pill.bad { background: color-mix(in srgb, var(--bad) 90%, var(--panel)); color: var(--bad); border-color: transparent; }
+.pill.good { background: color-mix(in srgb, var(--good) 12%, var(--panel)); color: var(--good); border-color: transparent; }
+.pill.warn { background: color-mix(in srgb, var(--warn) 12%, var(--panel)); color: var(--warn); border-color: transparent; }
+.pill.bad { background: color-mix(in srgb, var(--bad) 12%, var(--panel)); color: var(--bad); border-color: transparent; }
 .badge { display: inline-flex; align-items: center; padding: 3px 8px; border-radius: 999px; font-size: .68rem; font-weight: 750; background: var(--panel-2); color: var(--muted); }
-.badge.good { background: color-mix(in srgb, var(--good) 90%, var(--panel)); color: var(--good); }
-.badge.warn { background: color-mix(in srgb, var(--warn) 90%, var(--panel)); color: var(--warn); }
-.badge.bad { background: color-mix(in srgb, var(--bad) 90%, var(--panel)); color: var(--bad); }
+.badge.good { background: color-mix(in srgb, var(--good) 12%, var(--panel)); color: var(--good); }
+.badge.warn { background: color-mix(in srgb, var(--warn) 12%, var(--panel)); color: var(--warn); }
+.badge.bad { background: color-mix(in srgb, var(--bad) 12%, var(--panel)); color: var(--bad); }
 .alert {
   border: 1px solid var(--line); border-left: 4px solid var(--accent);
   background: var(--panel); border-radius: var(--radius-sm); padding: 13px 14px;
 }
 .alert + .alert { margin-top: 9px; }
-.alert.warn { border-left-color: var(--warn); background: color-mix(in srgb, var(--warn) 70%, var(--panel)); }
-.alert.bad { border-left-color: var(--bad); background: color-mix(in srgb, var(--bad) 70%, var(--panel)); }
-.alert.good { border-left-color: var(--good); background: color-mix(in srgb, var(--good) 70%, var(--panel)); }
+.alert.warn { border-left-color: var(--warn); background: color-mix(in srgb, var(--warn) 10%, var(--panel)); }
+.alert.bad { border-left-color: var(--bad); background: color-mix(in srgb, var(--bad) 10%, var(--panel)); }
+.alert.good { border-left-color: var(--good); background: color-mix(in srgb, var(--good) 10%, var(--panel)); }
 .alert.info { border-left-color: var(--accent); }
 .alert-title { display: flex; align-items: center; gap: 7px; font-weight: 750; font-size: .9rem; }
 .alert p { color: var(--muted); font-size: .82rem; margin-top: 4px; }
@@ -612,16 +616,24 @@ function escapeHTML(value) {
   return esc(value);
 }
 // <logic:end>
+// <logic:start>
+function safeNum(value, fallback = 0) {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : fallback;
+}
+// <logic:end>
 
 function uid() {
   return `id-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 }
+// <logic:start>
 function isoDate(date) {
   const y = date.getFullYear();
   const m = String(date.getMonth() + 1).padStart(2, '0');
   const d = String(date.getDate()).padStart(2, '0');
   return `${y}-${m}-${d}`;
 }
+// <logic:end>
 function today() {
   return isoDate(new Date());
 }
@@ -630,10 +642,20 @@ function dateOffset(days) {
   date.setDate(date.getDate() + Number(days || 0));
   return isoDate(date);
 }
+// <logic:start>
+function weekStart(value = today()) {
+  const date = parseDate(value);
+  const daysSinceMonday = (date.getDay() + 6) % 7;
+  date.setDate(date.getDate() - daysSinceMonday);
+  return isoDate(date);
+}
+// <logic:end>
+// <logic:start>
 function parseDate(value) {
   const [y, m, d] = String(value).split('-').map(Number);
   return new Date(y, (m || 1) - 1, d || 1);
 }
+// <logic:end>
 function prettyDate(value) {
   if (!value) return '—';
   try {
@@ -956,21 +978,22 @@ function blankLogs() {
   };
 }
 
+// <logic:start>
 function loadDB() {
   try {
     const raw = localStorage.getItem(DB_KEY);
     if (!raw) return { profiles: {}, schemaVersion: 0 };
-    const parsed = JSON.parse(raw);
-    if (!parsed || typeof parsed !== 'object') return { profiles: {}, schemaVersion: 0 };
-    // Initialize schemaVersion if missing (backwards compatibility)
+    let parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return { profiles: {}, schemaVersion: 0 };
     if (parsed.schemaVersion === undefined) parsed.schemaVersion = 0;
-    // Migrate to current schema version
-    if (parsed.schemaVersion < SCHEMA_VERSION) {
-      parsed = migrateDB(parsed);
+    if (!Number.isInteger(parsed.schemaVersion) || parsed.schemaVersion < 0 || parsed.schemaVersion > SCHEMA_VERSION) {
+      throw new Error('Unsupported Trainer4U schema version.');
     }
-    if (!parsed.profiles || typeof parsed.profiles !== 'object') parsed.profiles = {};
+    if (parsed.schemaVersion < SCHEMA_VERSION) parsed = migrateDB(parsed);
+    if (!parsed.profiles || typeof parsed.profiles !== 'object' || Array.isArray(parsed.profiles)) parsed.profiles = {};
     return parsed;
   } catch (err) {
+    console.warn('Trainer4U could not load saved profiles:', err);
     return { profiles: {}, schemaVersion: 0 };
   }
 }
@@ -1002,24 +1025,7 @@ function migrateDB(parsed) {
   return parsed;
 }
 
-function loadDB() {
-  try {
-    const raw = localStorage.getItem(DB_KEY);
-    if (!raw) return { profiles: {}, schemaVersion: 0 };
-    const parsed = JSON.parse(raw);
-    if (!parsed || typeof parsed !== 'object') return { profiles: {}, schemaVersion: 0 };
-    // Initialize schemaVersion if missing (backwards compatibility)
-    if (parsed.schemaVersion === undefined) parsed.schemaVersion = 0;
-    // Migrate to current schema version
-    if (parsed.schemaVersion < SCHEMA_VERSION) {
-      parsed = migrateDB(parsed);
-    }
-    if (!parsed.profiles || typeof parsed.profiles !== 'object') parsed.profiles = {};
-    return parsed;
-  } catch (err) {
-    return { profiles: {}, schemaVersion: 0 };
-  }
-}
+// <logic:end>
 
 function saveDB() {
   // Embed schema version so future migrations can detect old data
@@ -1070,37 +1076,20 @@ function createUser(username, salt, hash) {
 }
 
 function randomSalt() {
-  try {
-    const bytes = crypto.getRandomValues(new Uint8Array(16));
-    return Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('');
-  } catch (err) {
-    return `fallback-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  if (!window.crypto || !window.crypto.getRandomValues) {
+    throw new Error('Secure account creation requires HTTPS or localhost.');
   }
-}
-
-function fallbackHash(text) {
-  let h1 = 0xdeadbeef ^ text.length;
-  let h2 = 0x41c6ce57 ^ text.length;
-  for (let i = 0; i < text.length; i++) {
-    const code = text.charCodeAt(i);
-    h1 = Math.imul(h1 ^ code, 2654435761);
-    h2 = Math.imul(h2 ^ code, 1597334677);
-  }
-  h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
-  h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
-  return `${(h1 >>> 0).toString(16).padStart(8, '0')}${(h2 >>> 0).toString(16).padStart(8, '0')}`;
+  const bytes = window.crypto.getRandomValues(new Uint8Array(16));
+  return Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('');
 }
 
 async function hashPassword(password, salt) {
-  const text = `${salt}:${password}`;
-  try {
-    if (window.crypto && window.crypto.subtle) {
-      const bytes = new TextEncoder().encode(text);
-      const digest = await window.crypto.subtle.digest('SHA-256', bytes);
-      return Array.from(new Uint8Array(digest)).map(byte => byte.toString(16).padStart(2, '0')).join('');
-    }
-  } catch (err) { /* fall through */ }
-  return fallbackHash(text);
+  if (!window.crypto || !window.crypto.subtle) {
+    throw new Error('Secure password hashing requires HTTPS or localhost.');
+  }
+  const bytes = new TextEncoder().encode(`${salt}:${password}`);
+  const digest = await window.crypto.subtle.digest('SHA-256', bytes);
+  return Array.from(new Uint8Array(digest)).map(byte => byte.toString(16).padStart(2, '0')).join('');
 }
 
 function sampleFoodEntry(date, meal, name, grams) {
@@ -1378,6 +1367,7 @@ function currentWeight(user) {
 }
 // <logic:end>
 
+// <logic:start>
 function weightProgress(user) {
   const weights = sortedWeights(user);
   const start = Number(user.profile.startWeight) || (weights[0] && Number(weights[0].kg)) || currentWeight(user);
@@ -1385,7 +1375,8 @@ function weightProgress(user) {
   const target = Number(user.profile.targetWeight) || null;
   const change = round(current - start, 1);
   const total = target ? Math.abs(target - start) : 0;
-  const done = target && total > 0 ? Math.abs(current - start) : 0;
+  const direction = target > start ? 1 : target < start ? -1 : 0;
+  const done = direction ? Math.max(0, direction * (current - start)) : 0;
   const pct = target && total > 0 ? clamp((done / total) * 100, 0, 100) : 0;
   return {
     start: round(start, 1),
@@ -1396,6 +1387,7 @@ function weightProgress(user) {
     pct: Math.round(pct)
   };
 }
+// <logic:end>
 
 // <logic:start>
 function workoutsLast7(user) {
@@ -1482,6 +1474,37 @@ function targetWarnings(user) {
 }
 
 // <logic:start>
+function macroTargets(calories, weight, goal, proteinAdjustment = 0) {
+  const proteinPerKg = goal === 'lose' || goal === 'build' ? 2 : goal === 'gain' ? 1.8 : 1.6;
+  let protein = Math.round(clamp(weight * proteinPerKg + proteinAdjustment, 60, 260));
+  let fat = Math.round(clamp((calories * 0.27) / 9, 35, 130));
+  let remaining = calories - protein * 4 - fat * 9;
+
+  // Preserve the 50 g carbohydrate floor by reducing fat, then protein,
+  // rather than displaying macros whose calories exceed the calorie target.
+  if (remaining < 200) {
+    const needed = 200 - remaining;
+    const fatCut = Math.min(fat - 35, Math.ceil(needed / 9));
+    fat -= fatCut;
+    remaining += fatCut * 9;
+  }
+  if (remaining < 200) {
+    const needed = 200 - remaining;
+    const proteinCut = Math.min(protein - 60, Math.ceil(needed / 4));
+    protein -= proteinCut;
+    remaining += proteinCut * 4;
+  }
+  let carbs = Math.max(50, Math.round(remaining / 4));
+  if (protein * 4 + fat * 9 + carbs * 4 > calories) {
+    carbs = Math.max(50, Math.floor(remaining / 4));
+  }
+  const excess = protein * 4 + fat * 9 + carbs * 4 - calories;
+  if (excess > 0 && protein > 60) protein -= Math.min(protein - 60, Math.ceil(excess / 4));
+  return { protein, fat, carbs };
+}
+// <logic:end>
+
+// <logic:start>
 /**
  * Calculate Basal Metabolic Rate (Mifflin-St Jeor) and Total Daily Energy Expenditure.
  * @param {object} user - User state object with profile data
@@ -1520,10 +1543,7 @@ function baseTargets(user) {
   const rawCalories = tdee + goalDelta;
   const unsafe = rawCalories < safeMin;
   const calories = Math.round(clamp(rawCalories, safeMin, 5000) / 10) * 10;
-  const proteinPerKg = p.goal === 'lose' || p.goal === 'build' ? 2 : p.goal === 'gain' ? 1.8 : 1.6;
-  const protein = Math.round(clamp(weight * proteinPerKg, 60, 240));
-  const fat = Math.round(clamp((calories * 0.27) / 9, 35, 130));
-  const carbs = Math.max(50, Math.round((calories - protein * 4 - fat * 9) / 4));
+  const { protein, fat, carbs } = macroTargets(calories, weight, p.goal);
   return {
     bmr: Math.round(bmr),
     tdee: Math.round(tdee),
@@ -1686,9 +1706,7 @@ function targets(user) {
   const insights = getInsights(user);
   const adjustments = insights.adjustments;
   const calories = Math.round(clamp(base.calories + (adjustments.calorie || 0), base.safeMin, 5000) / 10) * 10;
-  const protein = Math.round(clamp(base.protein + (adjustments.protein || 0), 60, 260));
-  const fat = Math.round(clamp((calories * 0.27) / 9, 35, 130));
-  const carbs = Math.max(50, Math.round((calories - protein * 4 - fat * 9) / 4));
+  const { protein, fat, carbs } = macroTargets(calories, currentWeight(user) || Number(user.profile.weight) || 70, user.profile.goal, adjustments.protein || 0);
   return { ...base, calories, protein, carbs, fat, adjustments };
 }
 
@@ -1790,9 +1808,9 @@ function renderApp() {
     </header>
     <nav class="tabs" aria-label="Sections">
       ${TABS.map(tab => `
-        <button class="tab ${state.tab === tab.id ? 'active' : ''}" data-action="tab" data-tab="${tab.id}" aria-label="${esc(tab.label)}" title="${esc(tab.label)}">
-          <span class="tab-ico" aria-hidden="true">${tab.icon}</span><span class="tab-label" aria-hidden="true">${esc(tab.label)}</span>
-          ${tab.id === 'dashboard' && alertCount ? `<span class="dot">${alertCount}</span>` : ''}
+        <button class="tab ${state.tab === tab.id ? 'active' : ''}" data-action="tab" data-tab="${tab.id}" title="${esc(tab.label)}" ${state.tab === tab.id ? 'aria-current="page"' : ''}>
+          <span class="tab-ico" aria-hidden="true">${tab.icon}</span><span class="tab-label">${esc(tab.label)}</span>
+          ${tab.id === 'dashboard' && alertCount ? `<span class="dot" aria-hidden="true">${alertCount}</span>` : ''}
         </button>`).join('')}
     </nav>
     <main class="main">${content}</main>
@@ -3056,7 +3074,7 @@ function renderOnboarding() {
             </div>
             <div class="field">
               <label for="ob-age">Age</label>
-              <input id="ob-age" type="number" name="age" min="14" max="90" required placeholder="e.g. 29" value="${blank(p.age)}">
+              <input id="ob-age" type="number" name="age" min="12" max="100" required placeholder="e.g. 29" value="${blank(p.age)}">
             </div>
             <div class="field">
               <label for="ob-sex">Sex (used for the BMR formula)</label>
@@ -3123,8 +3141,8 @@ function renderOnboarding() {
               <textarea id="ob-injuries" name="injuries" placeholder="e.g. knee pain when squatting, lower-back tightness, asthma">${esc(p.injuries || '')}</textarea>
             </div>
             <div class="field span-2">
-              <label>Equipment available</label>
-              <div class="check-grid">
+              <span class="field-label" id="equipment-label">Equipment available</span>
+              <div class="check-grid" role="group" aria-labelledby="equipment-label">
                 ${EQUIPMENT.map(([value, label]) => `
                   <label class="check"><input type="checkbox" name="equipment" value="${value}" ${checked(value, equipment)}> ${label}</label>
                 `).join('')}
@@ -3233,7 +3251,7 @@ function overloadHint(user, exerciseName, reps) {
   const goal = p.goal || 'maintain';
   const experience = p.experience || 'beginner';
   // If reps suggest we've hit the top of the range, suggest a small weight increase
-  const topOfRange = goal === 'lose' ? 15 : goal === 'maintain' ? 12 : 8;
+  const topOfRange = goal === 'lose' ? 15 : 12;
   if (reps && Number(reps) >= topOfRange) {
     const exercise = EXERCISES.find(ex => ex.name === exerciseName);
     if (exercise && exercise.equip.includes('dumbbells')) {
@@ -3602,24 +3620,24 @@ function renderNutritionist() {
       <form data-form="add-food">
         <div class="form-grid">
           <div class="field span-2">
-            <label>Food (values per 100 g)</label>
-            <select name="food" required>
+            <label for="food-name">Food (values per 100 g)</label>
+            <select name="food" id="food-name" required>
               ${FOOD_DB.map(food => `<option value="${esc(food.name)}">${esc(food.name)} — ${food.cal} kcal / 100 g</option>`).join('')}
             </select>
           </div>
           <div class="field">
-            <label>Amount (grams)</label>
-            <input type="number" name="grams" min="1" max="2000" step="1" value="100" required>
+            <label for="food-grams">Amount (grams)</label>
+            <input type="number" name="grams" id="food-grams" min="1" max="2000" step="1" value="100" required>
           </div>
           <div class="field">
-            <label>Meal</label>
-            <select name="meal">
+            <label for="food-meal">Meal</label>
+            <select name="meal" id="food-meal">
               <option>Breakfast</option><option>Lunch</option><option>Dinner</option><option>Snack</option>
             </select>
           </div>
           <div class="field">
-            <label>Date</label>
-            <input type="date" name="date" value="${today()}" max="${today()}" required>
+            <label for="food-date">Date</label>
+            <input id="food-date" type="date" name="date" value="${today()}" max="${today()}" required>
           </div>
         </div>
         <div class="btn-row" style="margin-top:12px">
@@ -3668,6 +3686,20 @@ function renderNutritionist() {
       ${avg ? `<p class="small muted" style="margin-top:10px">Average on logged days: <b>${Math.round(avg.calories)} kcal</b> · P ${Math.round(avg.protein)} g · C ${Math.round(avg.carbs)} g · F ${Math.round(avg.fat)} g. Target: ${t.calories} kcal / ${t.protein} g protein.</p>` : ''}
     </div>`;
 }
+
+// <logic:start>
+function recipeMatchScore(recipe, rawIngredients) {
+  const tokens = String(rawIngredients || '').toLowerCase().split(/[,;\n]+/).map(item => item.trim()).filter(Boolean);
+  if (!tokens.length || !recipe || !Array.isArray(recipe.ingredients)) return null;
+  const matched = recipe.ingredients.filter(item => {
+    const name = String(item.name || '').toLowerCase();
+    return tokens.some(token => name.includes(token) || token.includes(name));
+  });
+  const matchedSet = new Set(matched);
+  const missing = recipe.ingredients.filter(item => !matchedSet.has(item));
+  return { matched, missing, ratio: recipe.ingredients.length ? matched.length / recipe.ingredients.length : 0 };
+}
+// <logic:end>
 
 /* ---------- Chef ---------- */
 function renderChef() {
@@ -3902,9 +3934,9 @@ function renderDoctor() {
         <div class="card-head"><h2>Sleep log</h2></div>
         <form data-form="add-sleep">
           <div class="form-grid">
-            <div class="field"><label>Date</label><input type="date" name="date" value="${today()}" max="${today()}" required></div>
-            <div class="field"><label>Hours slept</label><input type="number" name="hours" min="0" max="16" step="0.25" placeholder="7.5" required></div>
-            <div class="field span-2"><label>How did it feel?</label><select name="quality"><option value="1">1 — Poor</option><option value="2">2 — Restless</option><option value="3" selected>3 — OK</option><option value="4">4 — Good</option><option value="5">5 — Excellent</option></select></div>
+            <div class="field"><label for="sleep-date">Date</label><input id="sleep-date" type="date" name="date" value="${today()}" max="${today()}" required></div>
+            <div class="field"><label for="sleep-hours">Hours slept</label><input id="sleep-hours" type="number" name="hours" min="0" max="16" step="0.25" placeholder="7.5" required></div>
+            <div class="field span-2"><label for="sleep-quality">How did it feel?</label><select id="sleep-quality" name="quality"><option value="1">1 — Poor</option><option value="2">2 — Restless</option><option value="3" selected>3 — OK</option><option value="4">4 — Good</option><option value="5">5 — Excellent</option></select></div>
           </div>
           <button class="btn btn-primary btn-sm" type="submit" style="margin-top:10px">Log sleep</button>
         </form>
@@ -3920,9 +3952,9 @@ function renderDoctor() {
         <div class="card-head"><h2>Symptom &amp; injury notes</h2></div>
         <form data-form="add-symptom">
           <div class="form-grid">
-            <div class="field span-2"><label>What are you noticing?</label><textarea name="note" placeholder="e.g. right knee aches on stairs, started after Tuesday's squats" required></textarea></div>
-            <div class="field"><label>Date</label><input type="date" name="date" value="${today()}" max="${today()}" required></div>
-            <div class="field"><label>Severity</label><select name="severity"><option value="low">Low — manageable</option><option value="moderate">Moderate — affects training</option><option value="high">High — sharp or limiting</option></select></div>
+            <div class="field span-2"><label for="symptom-note">What are you noticing?</label><textarea id="symptom-note" name="note" placeholder="e.g. right knee aches on stairs, started after Tuesday's squats" required></textarea></div>
+            <div class="field"><label for="symptom-date">Date</label><input id="symptom-date" type="date" name="date" value="${today()}" max="${today()}" required></div>
+            <div class="field"><label for="symptom-severity">Severity</label><select id="symptom-severity" name="severity"><option value="low">Low — manageable</option><option value="moderate">Moderate — affects training</option><option value="high">High — sharp or limiting</option></select></div>
           </div>
           <button class="btn btn-primary btn-sm" type="submit" style="margin-top:10px">Save note</button>
         </form>
@@ -3995,8 +4027,8 @@ function renderProgress() {
         <div class="card-head"><h2>Log weight</h2></div>
         <form data-form="add-weight">
           <div class="form-grid">
-            <div class="field"><label>Date</label><input type="date" name="date" value="${today()}" max="${today()}" required></div>
-            <div class="field"><label>Weight (kg)</label><input type="number" name="kg" min="30" max="300" step="0.1" value="${round(currentWeight(u), 1)}" required></div>
+            <div class="field"><label for="weight-date">Date</label><input id="weight-date" type="date" name="date" value="${today()}" max="${today()}" required></div>
+            <div class="field"><label for="weight-kg">Weight (kg)</label><input id="weight-kg" type="number" name="kg" min="30" max="300" step="0.1" value="${round(currentWeight(u), 1)}" required></div>
           </div>
           <button class="btn btn-primary btn-sm" type="submit" style="margin-top:10px">Save weight</button>
         </form>
@@ -4005,12 +4037,12 @@ function renderProgress() {
         <div class="card-head"><h2>Log measurements</h2></div>
         <form data-form="add-measure">
           <div class="form-grid">
-            <div class="field span-2"><label>Date</label><input type="date" name="date" value="${today()}" max="${today()}" required></div>
-            <div class="field"><label>Chest (cm)</label><input type="number" name="chest" min="0" max="250" step="0.1" placeholder="—"></div>
-            <div class="field"><label>Waist (cm)</label><input type="number" name="waist" min="0" max="250" step="0.1" placeholder="—"></div>
-            <div class="field"><label>Hips (cm)</label><input type="number" name="hips" min="0" max="250" step="0.1" placeholder="—"></div>
-            <div class="field"><label>Arm (cm)</label><input type="number" name="arm" min="0" max="100" step="0.1" placeholder="—"></div>
-            <div class="field"><label>Thigh (cm)</label><input type="number" name="thigh" min="0" max="150" step="0.1" placeholder="—"></div>
+            <div class="field span-2"><label for="measure-date">Date</label><input id="measure-date" type="date" name="date" value="${today()}" max="${today()}" required></div>
+            <div class="field"><label for="measure-chest">Chest (cm)</label><input id="measure-chest" type="number" name="chest" min="0" max="250" step="0.1" placeholder="—"></div>
+            <div class="field"><label for="measure-waist">Waist (cm)</label><input id="measure-waist" type="number" name="waist" min="0" max="250" step="0.1" placeholder="—"></div>
+            <div class="field"><label for="measure-hips">Hips (cm)</label><input id="measure-hips" type="number" name="hips" min="0" max="250" step="0.1" placeholder="—"></div>
+            <div class="field"><label for="measure-arm">Arm (cm)</label><input id="measure-arm" type="number" name="arm" min="0" max="100" step="0.1" placeholder="—"></div>
+            <div class="field"><label for="measure-thigh">Thigh (cm)</label><input id="measure-thigh" type="number" name="thigh" min="0" max="150" step="0.1" placeholder="—"></div>
           </div>
           <button class="btn btn-primary btn-sm" type="submit" style="margin-top:10px">Save measurements</button>
         </form>
@@ -4271,24 +4303,38 @@ function drawCharts() {
 /* ---------------------------------------------------------------------------
    6) MODALS
    --------------------------------------------------------------------------- */
+let modalReturnFocus = null;
+function modalFocusable() {
+  const dialog = $('#modal-root [role="dialog"]');
+  if (!dialog) return [];
+  return $$('button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])', dialog)
+    .filter(element => element.getClientRects().length > 0);
+}
 function openModal(modal) {
+  if (!state.modal) modalReturnFocus = document.activeElement;
   state.modal = modal;
   document.body.style.overflow = 'hidden';
+  app.setAttribute('inert', '');
   renderModal();
 }
 function closeModal() {
   state.modal = null;
   const root = $('#modal-root');
   if (root) root.innerHTML = '';
+  app.removeAttribute('inert');
   document.body.style.overflow = '';
+  if (modalReturnFocus && modalReturnFocus.isConnected) modalReturnFocus.focus();
+  modalReturnFocus = null;
 }
 function renderModal() {
   const root = $('#modal-root');
   if (!root) return;
-  if (!state.modal) { root.innerHTML = ''; return; }
+  if (!state.modal) { root.innerHTML = ''; app.removeAttribute('inert'); return; }
   if (state.modal.type === 'settings') root.innerHTML = settingsModalMarkup();
   else if (state.modal.type === 'workout') root.innerHTML = workoutModalMarkup();
   else if (state.modal.type === 'recipe') root.innerHTML = recipeModalMarkup();
+  const focusable = modalFocusable();
+  if (focusable.length) focusable[0].focus();
 }
 
 function settingsModalMarkup() {
@@ -4363,7 +4409,7 @@ function workoutModalMarkup() {
   const day = plan.schedule[state.modal.dayIndex];
   if (!day || day.rest) {
     return `<div class="modal-overlay" data-action="close-modal"><div class="modal" role="dialog" aria-modal="true">
-      <div class="modal-head"><h2>Rest day</h2><button class="icon-btn" data-action="close-modal">✕</button></div>
+      <div class="modal-head"><h2>Rest day</h2><button class="icon-btn" data-action="close-modal" aria-label="Close rest day">✕</button></div>
       <p class="small muted">There is no workout scheduled for this day. Rest is part of the plan — or pick another day in the Trainer tab.</p>
       <button class="btn btn-primary w-full" data-action="close-modal" style="margin-top:14px">Got it</button>
     </div></div>`;
@@ -4391,14 +4437,14 @@ function workoutModalMarkup() {
         </div>
         <form data-form="log-workout" data-day="${day.weekday}">
           <div class="form-grid">
-            <div class="field"><label>Date</label><input type="date" name="date" value="${today()}" max="${today()}" required></div>
-            <div class="field"><label>Duration (minutes)</label><input type="number" name="duration" min="5" max="240" value="45" required></div>
+            <div class="field"><label for="workout-date">Date</label><input id="workout-date" type="date" name="date" value="${today()}" max="${today()}" required></div>
+            <div class="field"><label for="workout-duration">Duration (minutes)</label><input id="workout-duration" type="number" name="duration" min="5" max="240" value="45" required></div>
           </div>
           <div class="log-head"><span>Exercise</span><span>Weight kg</span><span>Reps</span></div>
           ${rows}
           <div class="field" style="margin-top:12px">
-            <label>Notes (optional)</label>
-            <textarea name="notes" placeholder="Energy, form notes, anything to remember next time"></textarea>
+            <label for="workout-notes">Notes (optional)</label>
+            <textarea id="workout-notes" name="notes" placeholder="Energy, form notes, anything to remember next time"></textarea>
           </div>
           <div class="btn-row" style="margin-top:14px">
             <button class="btn btn-primary" type="submit">Save workout</button>
@@ -4672,20 +4718,145 @@ function exportData() {
   toast('Progress exported as JSON.');
 }
 
+// <logic:start>
+function validateImportData(data) {
+  const object = (value, label) => {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error(`${label} must be an object.`);
+    return value;
+  };
+  const text = (value, label, max = 500, fallback = '') => {
+    if (value === undefined || value === null) return fallback;
+    if (typeof value !== 'string' || value.length > max) throw new Error(`${label} must be text up to ${max} characters.`);
+    return value;
+  };
+  const number = (value, label, min, max, fallback = null, integer = false) => {
+    if (value === undefined || value === null || value === '') return fallback;
+    if (typeof value !== 'number' || !Number.isFinite(value) || value < min || value > max || (integer && !Number.isInteger(value))) {
+      throw new Error(`${label} must be ${integer ? 'an integer' : 'a number'} between ${min} and ${max}.`);
+    }
+    return value;
+  };
+  const choice = (value, label, allowed, fallback) => {
+    if (value === undefined || value === null || value === '') return fallback;
+    if (typeof value !== 'string' || !allowed.includes(value)) throw new Error(`${label} has an unsupported value.`);
+    return value;
+  };
+  const date = value => {
+    if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) throw new Error('Every log entry needs a valid YYYY-MM-DD date.');
+    const parsed = new Date(`${value}T00:00:00Z`);
+    if (!Number.isFinite(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== value) throw new Error(`Invalid log date: ${value}.`);
+    return value;
+  };
+  const list = (value, label, mapper, max = 10000) => {
+    if (value === undefined || value === null) return [];
+    if (!Array.isArray(value) || value.length > max) throw new Error(`${label} must be an array with at most ${max} entries.`);
+    return value.map((entry, index) => mapper(object(entry, `${label} entry ${index + 1}`), index));
+  };
+  const id = (value, fallback) => text(value, 'Entry ID', 100, fallback);
+
+  object(data, 'Import');
+  const rawProfile = object(data.profile, 'Profile');
+  const rawLogs = object(data.logs, 'Logs');
+  const rawSettings = data.settings === undefined ? {} : object(data.settings, 'Settings');
+
+  const equipment = rawProfile.equipment === undefined ? ['bodyweight'] : rawProfile.equipment;
+  if (!Array.isArray(equipment) || equipment.length < 1 || equipment.length > 20 || equipment.some(item => typeof item !== 'string' || !['bodyweight', 'dumbbells', 'bands', 'barbell', 'kettlebell', 'gym', 'cardio'].includes(item))) {
+    throw new Error('Equipment contains an unsupported value.');
+  }
+  const profile = {
+    name: text(rawProfile.name, 'Name', 40),
+    age: number(rawProfile.age, 'Age', 12, 100, null, true),
+    sex: choice(rawProfile.sex, 'Sex', ['male', 'female', 'other'], ''),
+    height: number(rawProfile.height, 'Height', 120, 230),
+    weight: number(rawProfile.weight, 'Weight', 30, 300),
+    targetWeight: number(rawProfile.targetWeight, 'Target weight', 30, 300),
+    startWeight: number(rawProfile.startWeight, 'Starting weight', 30, 300),
+    activity: choice(rawProfile.activity, 'Activity', ['sedentary', 'light', 'moderate', 'active', 'veryactive'], ''),
+    goal: choice(rawProfile.goal, 'Goal', ['lose', 'gain', 'build', 'maintain'], ''),
+    diet: choice(rawProfile.diet, 'Diet', ['nonveg', 'vegetarian', 'vegan', 'eggetarian'], 'nonveg'),
+    allergies: text(rawProfile.allergies, 'Allergies', 1000),
+    injuries: text(rawProfile.injuries, 'Injuries', 2000),
+    equipment: [...new Set(equipment)],
+    daysPerWeek: number(rawProfile.daysPerWeek, 'Days per week', 1, 7, null, true),
+    experience: choice(rawProfile.experience, 'Experience', ['beginner', 'intermediate'], 'beginner')
+  };
+
+  const food = list(rawLogs.food, 'Food', (entry, index) => ({
+    id: id(entry.id, `import-food-${index}`),
+    date: date(entry.date),
+    meal: choice(entry.meal, 'Meal', ['Breakfast', 'Lunch', 'Dinner', 'Snack'], 'Snack'),
+    name: text(entry.name, 'Food name', 120),
+    grams: number(entry.grams, 'Food grams', 0, 2000, 0),
+    calories: number(entry.calories, 'Food calories', 0, 10000, 0),
+    protein: number(entry.protein, 'Food protein', 0, 1000, 0),
+    carbs: number(entry.carbs, 'Food carbs', 0, 1000, 0),
+    fat: number(entry.fat, 'Food fat', 0, 1000, 0)
+  }));
+  const weights = list(rawLogs.weights, 'Weight', entry => ({
+    date: date(entry.date), kg: number(entry.kg, 'Weight', 30, 300)
+  }));
+  const workouts = list(rawLogs.workouts, 'Workout', (entry, index) => ({
+    id: id(entry.id, `import-workout-${index}`),
+    date: date(entry.date),
+    label: text(entry.label, 'Workout label', 120),
+    focus: text(entry.focus, 'Workout focus', 200),
+    duration: number(entry.duration, 'Workout duration', 0, 240, 0),
+    notes: text(entry.notes, 'Workout notes', 2000),
+    exercises: list(entry.exercises, 'Workout exercises', exercise => ({
+      name: text(exercise.name, 'Exercise name', 120),
+      sets: number(exercise.sets, 'Exercise sets', 0, 30, 0),
+      reps: number(exercise.reps, 'Exercise reps', 0, 1000, 0),
+      weight: number(exercise.weight, 'Exercise weight', 0, 1000, 0)
+    }), 100)
+  }));
+  const measurements = list(rawLogs.measurements, 'Measurement', (entry, index) => ({
+    id: id(entry.id, `import-measure-${index}`),
+    date: date(entry.date),
+    chest: number(entry.chest, 'Chest', 0, 250),
+    waist: number(entry.waist, 'Waist', 0, 250),
+    hips: number(entry.hips, 'Hips', 0, 250),
+    arm: number(entry.arm, 'Arm', 0, 100),
+    thigh: number(entry.thigh, 'Thigh', 0, 150)
+  }));
+  const sleep = list(rawLogs.sleep, 'Sleep', (entry, index) => ({
+    id: id(entry.id, `import-sleep-${index}`),
+    date: date(entry.date),
+    hours: number(entry.hours, 'Sleep hours', 0, 16, 0),
+    quality: number(entry.quality, 'Sleep quality', 1, 5, 3)
+  }));
+  const symptoms = list(rawLogs.symptoms, 'Symptom', (entry, index) => ({
+    id: id(entry.id, `import-symptom-${index}`),
+    date: date(entry.date),
+    note: text(entry.note, 'Symptom note', 2000),
+    severity: choice(entry.severity, 'Severity', ['low', 'moderate', 'high'], 'low')
+  }));
+  const rawHydration = rawLogs.hydration === undefined ? {} : object(rawLogs.hydration, 'Hydration');
+  if (Object.keys(rawHydration).length > 10000) throw new Error('Hydration has too many entries.');
+  const hydration = {};
+  Object.entries(rawHydration).forEach(([day, cups]) => {
+    hydration[date(day)] = number(cups, 'Hydration cups', 0, 50, 0);
+  });
+  const settings = {
+    theme: choice(rawSettings.theme, 'Theme', ['', 'light', 'dark'], ''),
+    trainerMode: choice(rawSettings.trainerMode, 'Trainer mode', ['gym', 'home'], 'gym')
+  };
+  return { profile, logs: { workouts, food, weights, measurements, sleep, symptoms, hydration }, settings };
+}
+// <logic:end>
+
 async function importData(file) {
   try {
+    if (!file || file.size > 5 * 1024 * 1024) throw new Error('Choose a Trainer4U JSON export smaller than 5 MB.');
     const text = await file.text();
-    const data = JSON.parse(text);
-    if (!data || typeof data !== 'object' || !data.profile || !data.logs) {
-      throw new Error('That file does not look like a Trainer4U export.');
-    }
+    const cleaned = validateImportData(JSON.parse(text));
     if (!confirm('Replace your current logs with the imported data? Your account and username stay the same.')) return;
-    state.user.profile = { ...state.user.profile, ...data.profile };
-    state.user.logs = Object.assign(blankLogs(), data.logs);
+    state.user.profile = { ...state.user.profile, ...cleaned.profile };
+    state.user.logs = cleaned.logs;
+    state.user.settings = { ...state.user.settings, ...cleaned.settings };
     state.user.onboarded = true;
-    normalizeUser(state.user);
     saveUser();
     closeModal();
+    applyTheme();
     renderApp();
     toast('Progress imported successfully.');
   } catch (err) {
@@ -5079,7 +5250,24 @@ document.addEventListener('change', async event => {
 });
 
 document.addEventListener('keydown', event => {
-  if (event.key === 'Escape' && state.modal) closeModal();
+  if (event.key === 'Escape' && state.modal) {
+    event.preventDefault();
+    closeModal();
+    return;
+  }
+  if (event.key === 'Tab' && state.modal) {
+    const focusable = modalFocusable();
+    if (!focusable.length) return;
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  }
 });
 
 let resizeTimer;

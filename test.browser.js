@@ -54,7 +54,9 @@ let browser;
   async function axe(page, name) {
     await page.waitForTimeout(400);
     const toast = page.locator('.toast');
-    if (await toast.count()) await toast.waitFor({ state: 'detached', timeout: 5000 });
+    if (await toast.count()) {
+      await page.waitForFunction(() => document.querySelectorAll('.toast').length === 0, null, { timeout: 5000 });
+    }
     await page.evaluate(axeSource);
     const results = await page.evaluate(async () => axe.run(document, {
       runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa', 'wcag21aa'] }
@@ -72,25 +74,119 @@ let browser;
   const page = signup.page;
   await axe(page, 'sign in');
   await page.click('[data-action="auth-mode"][data-mode="signup"]');
+
+  await page.fill('#auth-username', 'ab');
+  await page.fill('#auth-password', 'test-password');
+  await page.fill('#auth-confirm', 'test-password');
+  await page.click('.auth-card form button[type="submit"]');
+  await page.waitForSelector('.form-error');
+  check('signup rejects an invalid username', (await page.locator('.form-error').textContent()).includes('3–24'));
+
+  await page.fill('#auth-username', 'browser-test');
+  await page.fill('#auth-password', 'short');
+  await page.fill('#auth-confirm', 'short');
+  await page.click('.auth-card form button[type="submit"]');
+  check('signup enforces the password minimum', await page.locator('#auth-password').evaluate(el => !el.validity.valid && el.validationMessage.length > 0));
+
+  await page.fill('#auth-password', 'test-password');
+  await page.fill('#auth-confirm', 'different-password');
+  await page.click('.auth-card form button[type="submit"]');
+  await page.waitForSelector('.form-error');
+  check('signup rejects mismatched passwords', (await page.locator('.form-error').textContent()).includes('do not match'));
+
   await page.fill('#auth-username', 'browser-test');
   await page.fill('#auth-password', 'test-password');
   await page.fill('#auth-confirm', 'test-password');
   await page.click('.auth-card form button[type="submit"]');
   await page.waitForSelector('form[data-form="onboarding"]');
+
+  const requiredFields = await page.locator('form[data-form="onboarding"]').evaluate(form =>
+    Array.from(form.elements).filter(field => field.required).map(field => field.name));
+  check('all required onboarding fields are explicit', JSON.stringify(requiredFields) === JSON.stringify([
+    'name', 'age', 'sex', 'height', 'weight', 'daysPerWeek', 'activity', 'goal', 'diet'
+  ]), requiredFields.join(', '));
+  check('blank target weight is valid and optional', await page.locator('#ob-target').evaluate(el => !el.required && el.value === '' && el.validity.valid));
+  check('free-text signup limits match import limits', await page.evaluate(() =>
+    document.querySelector('#ob-allergies').maxLength === 1000 && document.querySelector('#ob-injuries').maxLength === 2000));
   await axe(page, 'onboarding');
+
   await page.fill('#ob-name', 'Browser Test');
   await page.fill('#ob-age', '29');
   await page.selectOption('#ob-sex', 'male');
   await page.fill('#ob-height', '180');
   await page.fill('#ob-weight', '80');
-  await page.fill('#ob-target', '75');
   await page.selectOption('#ob-days', '3');
   await page.selectOption('#ob-activity', 'moderate');
   await page.selectOption('#ob-goal', 'lose');
   await page.selectOption('#ob-diet', 'nonveg');
+  await page.selectOption('#ob-experience', 'intermediate');
+  await page.fill('#ob-allergies', 'peanuts, dairy');
+  await page.fill('#ob-injuries', 'knee pain when squatting');
+  await page.uncheck('input[name="equipment"][value="bodyweight"]');
+  await page.check('input[name="equipment"][value="dumbbells"]');
+
+  // Reproduce the reported retry: an invalid goal/target combination followed by
+  // clearing the optional target must not leave stale browser validation behind.
+  await page.fill('#ob-target', '85');
+  await page.click('form[data-form="onboarding"] button[type="submit"]');
+  await page.waitForSelector('.field-error');
+  check('goal conflict explains the target error', (await page.locator('.field-error').textContent()).includes('target must be lower'));
+  check('invalid target receives focus', await page.evaluate(() => document.activeElement.id === 'ob-target'));
+  check('goal conflict sets custom validity', await page.locator('#ob-target').evaluate(el => el.validity.customError));
+  await page.fill('#ob-target', '');
+  check('editing target clears stale validation', await page.locator('#ob-target').evaluate(el => el.validity.valid && el.validationMessage === '' && !document.querySelector('.field-error')));
+
   await page.click('form[data-form="onboarding"] button[type="submit"]');
   await page.waitForSelector('.main h1');
-  check('signup and onboarding reach dashboard', (await page.locator('.main').textContent()).includes('Browser'));
+  check('signup and onboarding reach dashboard without target', (await page.locator('.main').textContent()).includes('Browser'));
+
+  const savedSignup = await page.evaluate(() => {
+    const db = JSON.parse(localStorage.getItem('trainer4u_db_v2'));
+    const user = db.profiles['browser-test'];
+    return {
+      profile: user.profile,
+      onboarded: user.onboarded,
+      weights: user.logs.weights,
+      session: localStorage.getItem('trainer4u_session_v2')
+    };
+  });
+  check('signup persists the basic profile fields', savedSignup.profile.name === 'Browser Test' && savedSignup.profile.age === 29 &&
+    savedSignup.profile.sex === 'male' && savedSignup.profile.height === 180 && savedSignup.profile.weight === 80 &&
+    savedSignup.profile.activity === 'moderate' && savedSignup.profile.goal === 'lose' && savedSignup.profile.diet === 'nonveg');
+  check('signup persists optional fields and blank target', savedSignup.profile.targetWeight === null &&
+    savedSignup.profile.allergies === 'peanuts, dairy' && savedSignup.profile.injuries === 'knee pain when squatting' &&
+    savedSignup.profile.experience === 'intermediate' && savedSignup.profile.daysPerWeek === 3);
+  check('signup always includes bodyweight equipment', savedSignup.profile.equipment.includes('bodyweight') && savedSignup.profile.equipment.includes('dumbbells'));
+  check('signup initializes progress and session', savedSignup.onboarded && savedSignup.profile.startWeight === 80 &&
+    savedSignup.weights.length === 1 && savedSignup.weights[0].kg === 80 && savedSignup.session === 'browser-test');
+
+  await page.reload();
+  await page.waitForSelector('.main h1');
+  check('reload restores the completed signup', (await page.locator('.userchip').textContent()) === 'Browser Test');
+
+  await page.click('[data-action="open-settings"]');
+  await page.click('[data-action="logout"]');
+  await page.waitForSelector('form[data-form="login"]');
+  await page.fill('#auth-username', 'browser-test');
+  await page.fill('#auth-password', 'wrong-password');
+  await page.click('.auth-card form button[type="submit"]');
+  await page.waitForSelector('.form-error');
+  check('login rejects a wrong password', (await page.locator('.form-error').textContent()).includes('does not match'));
+
+  await page.click('[data-action="auth-mode"][data-mode="signup"]');
+  await page.fill('#auth-username', 'BROWSER-TEST');
+  await page.fill('#auth-password', 'test-password');
+  await page.fill('#auth-confirm', 'test-password');
+  await page.click('.auth-card form button[type="submit"]');
+  await page.waitForSelector('.form-error');
+  check('duplicate usernames are case-insensitive', (await page.locator('.form-error').textContent()).includes('already exists'));
+
+  await page.click('[data-action="auth-mode"][data-mode="login"]');
+  await page.fill('#auth-username', 'browser-test');
+  await page.fill('#auth-password', 'test-password');
+  await page.click('.auth-card form button[type="submit"]');
+  await page.waitForSelector('.main h1');
+  check('correct login restores the saved profile', (await page.locator('.userchip').textContent()) === 'Browser Test');
   await axe(page, 'dashboard dark');
 
   await page.click('[data-action="open-settings"]');

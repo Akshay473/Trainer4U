@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="description" content="Trainer4U — a private, local-only fitness coaching app for workouts, nutrition, recipes, wellness and progress.">
 <meta name="color-scheme" content="light dark">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-HYABpjW1IsOwh+MOpV8QDaFQTvMnnAZPW/FIjycd7jo='; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-ia1f8Q+/5ZBoCgkoSNgl1vH006CioHqTct25fWEhkrQ='; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'">
 <meta name="theme-color" content="#0F172A">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="#0F172A">
@@ -3134,11 +3134,11 @@ function renderOnboarding() {
             </div>
             <div class="field">
               <label for="ob-allergies">Allergies / intolerances</label>
-              <input id="ob-allergies" type="text" name="allergies" value="${esc(p.allergies || '')}" placeholder="e.g. peanuts, dairy, gluten">
+              <input id="ob-allergies" type="text" name="allergies" maxlength="1000" value="${esc(p.allergies || '')}" placeholder="e.g. peanuts, dairy, gluten">
             </div>
             <div class="field span-2">
               <label for="ob-injuries">Injuries or conditions (optional)</label>
-              <textarea id="ob-injuries" name="injuries" placeholder="e.g. knee pain when squatting, lower-back tightness, asthma">${esc(p.injuries || '')}</textarea>
+              <textarea id="ob-injuries" name="injuries" maxlength="2000" placeholder="e.g. knee pain when squatting, lower-back tightness, asthma">${esc(p.injuries || '')}</textarea>
             </div>
             <div class="field span-2">
               <span class="field-label" id="equipment-label">Equipment available</span>
@@ -4603,10 +4603,15 @@ function validateOnboarding(fields) {
   return { errors, values: { age, height, weight, targetWeight } };
 }
 // <logic:end>
+function clearOnboardingErrors(form) {
+  form.querySelectorAll('.field-error').forEach(el => el.remove());
+  form.querySelectorAll('[name]').forEach(el => { if (el.setCustomValidity) el.setCustomValidity(''); });
+}
+
 function handleOnboarding(form, formData) {
   const wasEditing = state.editingProfile;
   const equipment = $$('input[name="equipment"]:checked', form).map(input => input.value);
-  if (!equipment.length) equipment.push('bodyweight');
+  if (!equipment.includes('bodyweight')) equipment.unshift('bodyweight');
 
   // ---- Onboarding validation (rejects unrealistic values, inline errors) ----
   const rawAge = String(formData.get('age') || '').trim();
@@ -4623,22 +4628,18 @@ function handleOnboarding(form, formData) {
         const errBox = wrapper.querySelector('.field-error');
         if (errBox) {
           errBox.textContent = message;
-          return;
+        } else {
+          const span = document.createElement('span');
+          span.className = 'field-error';
+          span.role = 'alert';
+          span.textContent = message;
+          wrapper.appendChild(span);
         }
-        const span = document.createElement('span');
-        span.className = 'field-error';
-        span.role = 'alert';
-        span.textContent = message;
-        wrapper.appendChild(span);
       }
       if (field.setCustomValidity) field.setCustomValidity(message);
     }
   };
-  const clearFormErrors = () => {
-    form.querySelectorAll('.field-error').forEach(el => el.remove());
-    form.querySelectorAll('[name]').forEach(el => { if (el.setCustomValidity) el.setCustomValidity(''); });
-  };
-  clearFormErrors();
+  clearOnboardingErrors(form);
 
   const validation = validateOnboarding({
     age: rawAge,
@@ -4651,8 +4652,9 @@ function handleOnboarding(form, formData) {
 
   if (errors.length) {
     errors.forEach(([name, msg]) => formError(name, msg));
-    const first = form.querySelector('.field-error');
-    if (first) first.focus ? first.focus() : null;
+    const firstError = form.querySelector('.field-error');
+    const firstField = firstError && firstError.closest('.field') ? firstError.closest('.field').querySelector('[name]') : null;
+    if (firstField) firstField.focus();
     return; // do not save — will re-render validation state
   }
 
@@ -5228,8 +5230,15 @@ document.addEventListener('submit', async event => {
   }
 });
 
+document.addEventListener('input', event => {
+  const form = event.target.closest('form[data-form="onboarding"]');
+  if (form) clearOnboardingErrors(form);
+});
+
 document.addEventListener('change', async event => {
   const input = event.target;
+  const onboardingForm = input.closest('form[data-form="onboarding"]');
+  if (onboardingForm) clearOnboardingErrors(onboardingForm);
   if (input.id === 'import-file' && input.files && input.files[0]) {
     await importData(input.files[0]);
     input.value = '';

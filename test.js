@@ -143,6 +143,11 @@ check('getInsights creates alerts', ins2.alerts.length >= 2, 'alerts=' + ins2.al
 // --- onboarding validation (rejects unrealistic values) ---
 // valid: in-range numbers, sensible direction
 eq('validateOnboarding valid', L.validateOnboarding({age:29,height:175,weight:80,targetWeight:75,goal:'lose'}).errors.length, 0);
+['', '   ', null, undefined].forEach((blankTarget, index) => {
+  const result = L.validateOnboarding({age:29,height:175,weight:80,targetWeight:blankTarget,goal:'lose'});
+  eq(`validateOnboarding blank target ${index} accepted`, result.errors.length, 0);
+  eq(`validateOnboarding blank target ${index} stored as null`, result.values.targetWeight, null);
+});
 // age 12–100
 eq('validateOnboarding age 11 rejected', L.validateOnboarding({age:11,height:175,weight:80,goal:'lose'}).errors[0][0], 'age');
 eq('validateOnboarding age 101 rejected', L.validateOnboarding({age:101,height:175,weight:80,goal:'lose'}).errors[0][0], 'age');

@@ -1,0 +1,17 @@
+{
+  "root": true,
+  "env": {
+    "browser": true,
+    "node": true,
+    "serviceworker": true,
+    "es2021": true
+  },
+  "parserOptions": {
+    "ecmaVersion": 2021
+  },
+  "rules": {
+    "no-undef": "error",
+    "no-const-assign": "error",
+    "no-redeclare": "error"
+  }
+}

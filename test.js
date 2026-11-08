@@ -3,6 +3,7 @@
 'use strict';
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 
 let passed = 0, failed = 0;
 function check(name, cond, detail) {
@@ -39,9 +40,13 @@ const dateOffsetMock = days => {
   const y = d.getFullYear(), m = String(d.getMonth()+1).padStart(2,'0'), dd = String(d.getDate()).padStart(2,'0');
   return `${y}-${m}-${dd}`;
 };
-const factory = new Function('ACTIVITY_MULTIPLIERS', 'GOAL_LABELS', 'today', 'dateOffset',
-  code + '\nreturn { clamp, round, sortedWeights, currentWeight, workoutsLast7, sleepAverage, loggedDays, bmiFor, bmiCategory, weightTrendPerWeek, weightTrendCategory, calorieDrift, proteinGap, sleepDeficit, baseTargets, getInsights, validateOnboarding, esc, escapeHTML };\n');
-const L = factory(ACTIVITY_MULTIPLIERS, GOAL_LABELS, todayMock, dateOffsetMock);
+const memoryStorage = (() => {
+  const values = new Map();
+  return { getItem: key => values.has(key) ? values.get(key) : null, setItem: (key, value) => values.set(key, String(value)) };
+})();
+const factory = new Function('ACTIVITY_MULTIPLIERS', 'GOAL_LABELS', 'today', 'dateOffset', 'localStorage', 'DB_KEY', 'SCHEMA_VERSION',
+  code + '\nreturn { clamp, round, safeNum, sortedWeights, currentWeight, weightProgress, workoutsLast7, sleepAverage, loggedDays, bmiFor, bmiCategory, weightTrendPerWeek, weightTrendCategory, calorieDrift, proteinGap, sleepDeficit, macroTargets, baseTargets, getInsights, validateOnboarding, validateImportData, recipeMatchScore, weekStart, loadDB, esc, escapeHTML };\n');
+const L = factory(ACTIVITY_MULTIPLIERS, GOAL_LABELS, todayMock, dateOffsetMock, memoryStorage, 'trainer4u_db_v2', 2);
 
 function mkUser(over = {}) {
   const base = {
@@ -164,6 +169,74 @@ eq('escapeHTML helper exists', typeof L.escapeHTML, 'function');
 eq('currentWeight from profile', L.currentWeight(mkUser()), 80);
 eq('clamp(5,10,20)', L.clamp(5, 10, 20), 10);
 eq('round(1.5)', L.round(1.5), 1.5);
+eq('safeNum parses form values', L.safeNum('4', 3), 4);
+eq('safeNum uses fallback', L.safeNum('bad', 3), 3);
+
+// --- regression tests for confirmed defects ---
+eq('weekStart Monday', L.weekStart('2026-11-02'), '2026-11-02');
+eq('weekStart Sunday returns Monday', L.weekStart('2026-11-08'), '2026-11-02');
+
+const wrongWay = mkUser({ profile: { startWeight: 80, weight: 85, targetWeight: 70, goal: 'lose' } });
+eq('weightProgress wrong-way gives no credit', L.weightProgress(wrongWay).pct, 0);
+const rightWay = mkUser({ profile: { startWeight: 80, weight: 75, targetWeight: 70, goal: 'lose' } });
+eq('weightProgress right-way gives credit', L.weightProgress(rightWay).pct, 50);
+
+const constrainedMacros = L.macroTargets(1200, 300, 'lose');
+check('macro minimums stay reconciled with calorie target',
+  constrainedMacros.carbs >= 50 && constrainedMacros.fat >= 35 && constrainedMacros.protein >= 60 &&
+  4 * (constrainedMacros.protein + constrainedMacros.carbs) + 9 * constrainedMacros.fat <= 1200,
+  JSON.stringify(constrainedMacros));
+
+const sampleRecipe = { ingredients: [{ name: 'Chicken breast' }, { name: 'Cooked rice' }, { name: 'Broccoli' }] };
+const match = L.recipeMatchScore(sampleRecipe, 'chicken, rice');
+eq('recipeMatchScore matches ingredients', match.matched.length, 2);
+eq('recipeMatchScore identifies missing', match.missing.length, 1);
+eq('recipeMatchScore empty input', L.recipeMatchScore(sampleRecipe, ''), null);
+
+memoryStorage.setItem('trainer4u_db_v2', JSON.stringify({
+  schemaVersion: 0,
+  profiles: { legacy: { username: 'legacy', profile: { name: 'Keep me' } } }
+}));
+const migrated = L.loadDB();
+eq('old-schema migration preserves profile', migrated.profiles.legacy.profile.name, 'Keep me');
+eq('old-schema migration updates version', migrated.schemaVersion, 2);
+eq('old-schema migration keeps default equipment', migrated.profiles.legacy.profile.equipment[0], 'bodyweight');
+
+const validExport = mkUser();
+const cleaned = L.validateImportData({ profile: validExport.profile, logs: validExport.logs, settings: validExport.settings });
+eq('valid import preserves profile name', cleaned.profile.name, 'Test');
+const xssText = '<svg onload=window.__importXss=1>';
+const xssImport = L.validateImportData({
+  profile: { ...validExport.profile, name: xssText },
+  logs: { ...validExport.logs, food: [{ date: '2026-11-05', meal: 'Snack', name: xssText, grams: 100, calories: 10, protein: 1, carbs: 1, fat: 0 }] },
+  settings: validExport.settings
+});
+eq('import treats markup as text', xssImport.logs.food[0].name, xssText);
+eq('escaping neutralizes imported markup', L.esc(xssImport.logs.food[0].name).includes('<img'), false);
+let malformedRejected = false;
+try {
+  L.validateImportData({ profile: validExport.profile, logs: { ...validExport.logs, food: [null] }, settings: validExport.settings });
+} catch (error) { malformedRejected = true; }
+check('malformed food entry rejected before persistence', malformedRejected);
+let badSettingsRejected = false;
+try {
+  L.validateImportData({ profile: validExport.profile, logs: validExport.logs, settings: { theme: 'bad' } });
+} catch (error) { badSettingsRejected = true; }
+check('invalid settings rejected', badSettingsRejected);
+
+// Static release checks for CSP, icons and the removed insecure hash fallback.
+const inlineScript = /<script>([\s\S]*?)<\/script>/.exec(html)[1];
+const scriptHash = crypto.createHash('sha256').update(inlineScript).digest('base64');
+check('CSP hash matches the actual inline script', html.includes(`'sha256-${scriptHash}'`));
+check('non-cryptographic password fallback removed', !html.includes('fallbackHash'));
+const serviceWorker = fs.readFileSync(path.join(__dirname, 'sw.js'), 'utf8');
+check('service worker limits cache deletion to its own prefix', serviceWorker.includes('name.startsWith(CACHE_PREFIX) && name !== CACHE_NAME'));
+check('service worker restricts requests to its own scope', serviceWorker.includes('url.pathname.startsWith(APP_SCOPE.pathname)'));
+check('progressive overload uses 12-rep upper bound', html.includes("const topOfRange = goal === 'lose' ? 15 : 12;"));
+for (const size of [192, 512]) {
+  const icon = require('fs').readFileSync(path.join(__dirname, `icons/manifest-${size}.png`));
+  check(`manifest icon ${size} is a real PNG`, icon.subarray(1, 4).toString() === 'PNG' && icon.readUInt32BE(16) === size && icon.readUInt32BE(20) === size);
+}
 
 console.log('');
 console.log('Passed: ' + passed + '  Failed: ' + failed + '  Blocks extracted: ' + blocks.length);

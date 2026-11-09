@@ -213,6 +213,42 @@ let browser;
 
   await tab(page, 'nutritionist');
   await axe(page, 'Nutritionist');
+  await page.locator('[data-action="open-custom-food"]').first().click();
+  await page.waitForSelector('form[data-form="custom-food"]');
+  await axe(page, 'custom food modal');
+  await page.fill('#custom-name', 'Homemade dal');
+  await page.fill('#custom-serving-label', '1 bowl');
+  await page.fill('#custom-serving-grams', '250');
+  await page.fill('#custom-calories', '280');
+  await page.fill('#custom-protein', '18');
+  await page.fill('#custom-carbs', '35');
+  await page.fill('#custom-fat', '6');
+  await page.click('form[data-form="custom-food"] button[type="submit"]');
+  await page.waitForSelector('[role="dialog"]', { state: 'detached' });
+  const customFood = await page.evaluate(() => state.user.customFoods[0]);
+  check('custom food saves its serving and nutrition', !!customFood && customFood.name === 'Homemade dal' &&
+    customFood.servingLabel === '1 bowl' && customFood.servingGrams === 250 && customFood.calories === 280);
+  check('custom food appears in the logging library', await page.locator('#food-name optgroup[label="My foods"]').count() === 1);
+  await page.selectOption('#food-name', `custom:${customFood.id}`);
+  check('custom food defaults to its named serving', await page.locator('#food-unit').inputValue() === 'serving' &&
+    (await page.locator('#food-portion-hint').textContent()).includes('1 bowl = 250 g'));
+  await page.fill('#food-amount', '1.5');
+  await page.selectOption('#food-meal', 'Lunch');
+  await page.click('form[data-form="add-food"] button[type="submit"]');
+  await page.waitForSelector('.food-name', { hasText: 'Homemade dal' });
+  const customEntry = await page.evaluate(() => state.user.logs.food.find(entry => entry.name === 'Homemade dal'));
+  check('serving logging scales custom nutrition', !!customEntry && customEntry.grams === 375 && customEntry.calories === 420 &&
+    customEntry.protein === 27 && customEntry.carbs === 52.5 && customEntry.fat === 9);
+  check('diary shows the named portion', (await page.locator('.food-name', { hasText: '1.5 × 1 bowl' }).textContent()).includes('1.5 × 1 bowl'));
+  await page.selectOption('#food-name', 'db:Eggs');
+  await page.selectOption('#food-unit', 'oz');
+  await page.fill('#food-amount', '1');
+  await page.selectOption('#food-meal', 'Snack');
+  await page.click('form[data-form="add-food"] button[type="submit"]');
+  const ounceEntry = await page.evaluate(() => state.user.logs.food[state.user.logs.food.length - 1]);
+  check('built-in foods support ounce portions', ounceEntry.name === 'Eggs' && ounceEntry.grams === 28.3 && ounceEntry.portion === '1 oz');
+  await axe(page, 'Nutritionist with custom foods');
+  await page.screenshot({ path: path.join(screenshots, 'trainer4u-custom-foods-desktop.png'), fullPage: true });
   await tab(page, 'doctor');
   await axe(page, 'Health check');
   await tab(page, 'progress');
@@ -232,11 +268,15 @@ let browser;
 
   // Real file-input import: markup must remain inert text and malformed data must not persist.
   const payload = '<svg onload=window.__importXss=1>';
-  const exported = await page.evaluate(() => ({
-    profile: state.user.profile,
-    logs: state.user.logs,
-    settings: state.user.settings
-  }));
+  // Use the real export download so the backup path itself is covered.
+  await page.click('[data-action="open-settings"]');
+  const downloadPromise = page.waitForEvent('download');
+  await page.click('[data-action="export-data"]');
+  const backupDownload = await downloadPromise;
+  const exported = JSON.parse(fs.readFileSync(await backupDownload.path(), 'utf8'));
+  check('JSON export includes custom foods and portion labels', exported.customFoods.length === 1 &&
+    exported.customFoods[0].name === 'Homemade dal' && exported.logs.food.some(entry => entry.portion === '1.5 × 1 bowl'));
+  await page.keyboard.press('Escape');
   exported.profile.name = payload;
   exported.logs.food.push({ date: new Date().toISOString().slice(0, 10), meal: 'Snack', name: payload, grams: 100, calories: 10, protein: 1, carbs: 1, fat: 0 });
   await page.evaluate(() => { window.__importXss = 0; });
@@ -247,6 +287,8 @@ let browser;
   check('stored import payload did not execute', await page.evaluate(() => window.__importXss === 0));
   await tab(page, 'nutritionist');
   check('imported food markup is escaped', await page.locator('.food-name', { hasText: payload }).count() === 1);
+  check('custom food library survives import', await page.evaluate(() => state.user.customFoods.length === 1 && state.user.customFoods[0].name === 'Homemade dal'));
+  check('custom diary entry survives import', await page.locator('.food-name', { hasText: '1.5 × 1 bowl' }).count() === 1);
 
   const beforeMalformed = await page.evaluate(() => localStorage.getItem('trainer4u_db_v2'));
   await page.click('[data-action="open-settings"]');
@@ -257,6 +299,17 @@ let browser;
   await page.waitForSelector('.toast.show');
   check('malformed import leaves saved data unchanged', await page.evaluate(() => localStorage.getItem('trainer4u_db_v2')) === beforeMalformed);
   await page.keyboard.press('Escape');
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  check('custom foods layout fits a 390px screen', await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth));
+  await axe(page, 'Nutritionist custom foods mobile');
+  await page.screenshot({ path: path.join(screenshots, 'trainer4u-custom-foods-mobile.png'), fullPage: true });
+  await page.setViewportSize({ width: 1440, height: 1000 });
+
+  await page.locator('[data-action="delete-custom-food"]').click();
+  check('deleting a custom food clears only the library', await page.evaluate(() => state.user.customFoods.length === 0 &&
+    state.user.logs.food.some(entry => entry.name === 'Homemade dal' && entry.portion === '1.5 × 1 bowl')));
+  check('deleted custom food remains in diary history', await page.locator('.food-name', { hasText: '1.5 × 1 bowl' }).count() === 1);
 
   // Verify offline reload using the actual service worker.
   await page.evaluate(() => navigator.serviceWorker.ready);

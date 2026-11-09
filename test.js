@@ -44,9 +44,9 @@ const memoryStorage = (() => {
   const values = new Map();
   return { getItem: key => values.has(key) ? values.get(key) : null, setItem: (key, value) => values.set(key, String(value)) };
 })();
-const factory = new Function('ACTIVITY_MULTIPLIERS', 'GOAL_LABELS', 'today', 'dateOffset', 'localStorage', 'DB_KEY', 'SCHEMA_VERSION',
-  code + '\nreturn { clamp, round, safeNum, sortedWeights, currentWeight, weightProgress, workoutsLast7, sleepAverage, loggedDays, bmiFor, bmiCategory, weightTrendPerWeek, weightTrendCategory, calorieDrift, proteinGap, sleepDeficit, macroTargets, baseTargets, getInsights, validateOnboarding, validateImportData, recipeMatchScore, weekStart, loadDB, esc, escapeHTML };\n');
-const L = factory(ACTIVITY_MULTIPLIERS, GOAL_LABELS, todayMock, dateOffsetMock, memoryStorage, 'trainer4u_db_v2', 2);
+const factory = new Function('ACTIVITY_MULTIPLIERS', 'GOAL_LABELS', 'today', 'dateOffset', 'localStorage', 'DB_KEY', 'SCHEMA_VERSION', 'uid',
+  code + '\nreturn { clamp, round, safeNum, sortedWeights, currentWeight, weightProgress, workoutsLast7, sleepAverage, loggedDays, bmiFor, bmiCategory, weightTrendPerWeek, weightTrendCategory, calorieDrift, proteinGap, sleepDeficit, macroTargets, baseTargets, getInsights, validateOnboarding, validateCustomFood, gramsForPortion, foodEntryFromFood, validateImportData, recipeMatchScore, weekStart, loadDB, esc, escapeHTML };\n');
+const L = factory(ACTIVITY_MULTIPLIERS, GOAL_LABELS, todayMock, dateOffsetMock, memoryStorage, 'trainer4u_db_v2', 2, () => 'test-food-id');
 
 function mkUser(over = {}) {
   const base = {
@@ -207,9 +207,43 @@ eq('old-schema migration preserves profile', migrated.profiles.legacy.profile.na
 eq('old-schema migration updates version', migrated.schemaVersion, 2);
 eq('old-schema migration keeps default equipment', migrated.profiles.legacy.profile.equipment[0], 'bodyweight');
 
+// --- custom foods and portion-based logging ---
+const customFood = { id: 'dal-1', name: 'Homemade dal', servingLabel: '1 bowl', servingGrams: 250, calories: 280, protein: 18, carbs: 35, fat: 6 };
+eq('valid custom food accepted', L.validateCustomFood(customFood).errors.length, 0);
+eq('custom food requires a serving name', L.validateCustomFood({ ...customFood, servingLabel: '' }).errors[0][0], 'servingLabel');
+eq('custom food rejects blank nutrition', L.validateCustomFood({ ...customFood, calories: '' }).errors.some(([field]) => field === 'calories'), true);
+eq('custom food rejects excess serving weight', L.validateCustomFood({ ...customFood, servingGrams: 2001 }).errors.some(([field]) => field === 'servingGrams'), true);
+eq('custom serving converts to grams', L.gramsForPortion(1.5, 'serving', customFood), 375);
+eq('100 g portions convert to grams', L.gramsForPortion(2.5, '100g', customFood), 250);
+check('ounces convert to grams', Math.abs(L.gramsForPortion(1, 'oz', customFood) - 28.349523125) < 0.000001);
+eq('unknown portion rejected', Number.isNaN(L.gramsForPortion(1, 'plates', customFood)), true);
+const customEntry = L.foodEntryFromFood('2026-11-05', 'Lunch', customFood, 375, '1.5 × 1 bowl');
+eq('custom entry uses saved serving calories', customEntry.calories, 420);
+eq('custom entry scales protein', customEntry.protein, 27);
+eq('custom entry scales carbs', customEntry.carbs, 52.5);
+eq('custom entry scales fat', customEntry.fat, 9);
+eq('custom entry preserves portion label', customEntry.portion, '1.5 × 1 bowl');
+const builtInEntry = L.foodEntryFromFood('2026-11-05', 'Breakfast', { name: 'Test food', cal: 143, protein: 12.6, carbs: 0.7, fat: 9.5 }, 100);
+eq('built-in food keeps per-100g calories', builtInEntry.calories, 143);
+
 const validExport = mkUser();
 const cleaned = L.validateImportData({ profile: validExport.profile, logs: validExport.logs, settings: validExport.settings });
 eq('valid import preserves profile name', cleaned.profile.name, 'Test');
+eq('older import gets an empty custom food library', cleaned.customFoods.length, 0);
+const customImport = L.validateImportData({
+  profile: validExport.profile,
+  logs: { ...validExport.logs, food: [{ ...customEntry, id: 'food-1' }] },
+  customFoods: [customFood],
+  settings: validExport.settings
+});
+eq('custom food library survives import', customImport.customFoods[0].name, 'Homemade dal');
+eq('custom serving survives import', customImport.customFoods[0].servingGrams, 250);
+eq('diary portion survives import', customImport.logs.food[0].portion, '1.5 × 1 bowl');
+let duplicateCustomIdsRejected = false;
+try {
+  L.validateImportData({ profile: validExport.profile, logs: validExport.logs, customFoods: [customFood, customFood], settings: validExport.settings });
+} catch (error) { duplicateCustomIdsRejected = true; }
+check('duplicate custom food IDs rejected', duplicateCustomIdsRejected);
 const xssText = '<svg onload=window.__importXss=1>';
 const xssImport = L.validateImportData({
   profile: { ...validExport.profile, name: xssText },

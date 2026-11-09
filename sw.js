@@ -1,5 +1,5 @@
 const CACHE_PREFIX = 'trainer4u-';
-const CACHE_NAME = `${CACHE_PREFIX}v2026.11.08`;
+const CACHE_NAME = `${CACHE_PREFIX}v2026.11.09`;
 const APP_SCOPE = new URL('./', self.location.href);
 const APP_SHELL = [
   './',

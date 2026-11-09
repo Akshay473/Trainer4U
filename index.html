@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="description" content="Trainer4U — a private, local-only fitness coaching app for workouts, nutrition, recipes, wellness and progress.">
 <meta name="color-scheme" content="light dark">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-ia1f8Q+/5ZBoCgkoSNgl1vH006CioHqTct25fWEhkrQ='; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-WEv1FNSLYwVhTr3YsWfNKfLW+kQFFr3jiNy7RGVYoR0='; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'">
 <meta name="theme-color" content="#0F172A">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="#0F172A">
@@ -405,6 +405,8 @@ select { appearance: none; background-image: linear-gradient(45deg, transparent 
 .legend i { display: inline-block; width: 9px; height: 9px; border-radius: 3px; margin-right: 5px; }
 .table-wrap { overflow-x: auto; margin-top: 4px; }
 table { width: 100%; border-collapse: collapse; font-size: .8rem; }
+.weekly-table { min-width: 620px; }
+.weekly-table td { white-space: nowrap; }
 th { text-align: left; font-size: .66rem; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); padding: 7px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
 td { padding: 8px; border-bottom: 1px dashed var(--line); }
 tr:last-child td { border-bottom: 0; }
@@ -1071,6 +1073,7 @@ function createUser(username, salt, hash) {
       experience: 'beginner'
     },
     logs: blankLogs(),
+    customFoods: [],
     settings: { theme: '', trainerMode: 'gym' }
   };
 }
@@ -1092,20 +1095,64 @@ async function hashPassword(password, salt) {
   return Array.from(new Uint8Array(digest)).map(byte => byte.toString(16).padStart(2, '0')).join('');
 }
 
-function sampleFoodEntry(date, meal, name, grams) {
-  const food = FOOD_DB.find(item => item.name === name) || { cal: 0, protein: 0, carbs: 0, fat: 0 };
-  const factor = Number(grams) / 100;
+// <logic:start>
+function validateCustomFood(fields) {
+  const errors = [];
+  const name = String(fields.name || '').trim();
+  const servingLabel = String(fields.servingLabel || '').trim();
+  const numeric = (value, label, min, max) => {
+    const raw = value == null ? '' : String(value).trim();
+    const parsed = raw === '' ? NaN : Number(raw);
+    if (!Number.isFinite(parsed) || parsed < min || parsed > max) errors.push([label, `${label} must be between ${min} and ${max}.`]);
+    return parsed;
+  };
+  if (!name || name.length > 120) errors.push(['name', 'Food name is required and must be at most 120 characters.']);
+  if (!servingLabel || servingLabel.length > 40) errors.push(['servingLabel', 'Serving name is required and must be at most 40 characters.']);
+  const servingGrams = numeric(fields.servingGrams, 'servingGrams', 1, 2000);
+  const calories = numeric(fields.calories, 'calories', 0, 5000);
+  const protein = numeric(fields.protein, 'protein', 0, 1000);
+  const carbs = numeric(fields.carbs, 'carbs', 0, 1000);
+  const fat = numeric(fields.fat, 'fat', 0, 1000);
+  return { errors, values: { name, servingLabel, servingGrams, calories, protein, carbs, fat } };
+}
+
+function gramsForPortion(amount, unit, food) {
+  const value = Number(amount);
+  if (!Number.isFinite(value) || value <= 0) return NaN;
+  if (unit === 'grams') return value;
+  if (unit === '100g') return value * 100;
+  if (unit === 'oz') return value * 28.349523125;
+  if (unit === 'serving' && food && Number(food.servingGrams) > 0) return value * Number(food.servingGrams);
+  return NaN;
+}
+
+function foodEntryFromFood(date, meal, food, grams, portion = '') {
+  const savedGrams = round(Number(grams), 1);
+  const custom = food && Number(food.servingGrams) > 0;
+  const basis = custom ? Number(food.servingGrams) : 100;
+  const factor = savedGrams / basis;
+  const calories = custom ? Number(food.calories) : Number(food.cal);
+  const protein = Number(food.protein);
+  const carbs = Number(food.carbs);
+  const fat = Number(food.fat);
   return {
     id: uid(),
     date,
     meal,
-    name,
-    grams: Number(grams),
-    calories: round(food.cal * factor, 0),
-    protein: round(food.protein * factor, 1),
-    carbs: round(food.carbs * factor, 1),
-    fat: round(food.fat * factor, 1)
+    name: food.name,
+    grams: savedGrams,
+    portion,
+    calories: round(calories * factor, 0),
+    protein: round(protein * factor, 1),
+    carbs: round(carbs * factor, 1),
+    fat: round(fat * factor, 1)
   };
+}
+// <logic:end>
+
+function sampleFoodEntry(date, meal, name, grams) {
+  const food = FOOD_DB.find(item => item.name === name) || { cal: 0, protein: 0, carbs: 0, fat: 0 };
+  return foodEntryFromFood(date, meal, food, grams);
 }
 
 function sampleLogs() {
@@ -3555,6 +3602,34 @@ function macroBar(label, value, target, unit) {
       <div class="progress ${over ? 'warn' : 'good'}"><span style="width:${pct}%"></span></div>
     </div>`;
 }
+function foodOptionsMarkup(user) {
+  const builtIn = FOOD_DB.map(food => `<option value="db:${esc(food.name)}">${esc(food.name)} - ${food.cal} kcal / 100 g</option>`).join('');
+  const custom = (user.customFoods || []).map(food => `<option value="custom:${esc(food.id)}" data-custom="true" data-serving-grams="${esc(food.servingGrams)}" data-serving-label="${esc(food.servingLabel)}">${esc(food.name)} - ${food.calories} kcal / ${esc(food.servingLabel)}</option>`).join('');
+  return `<optgroup label="Food database">${builtIn}</optgroup>${custom ? `<optgroup label="My foods">${custom}</optgroup>` : ''}`;
+}
+function syncFoodPortionForm(form, resetAmount) {
+  const foodSelect = form.querySelector('[name="food"]');
+  const unitSelect = form.querySelector('[name="unit"]');
+  const amountInput = form.querySelector('[name="amount"]');
+  const hint = form.querySelector('#food-portion-hint');
+  const option = foodSelect.selectedOptions[0];
+  if (!option || !unitSelect || !amountInput) return;
+  const custom = option.dataset.custom === 'true';
+  const servingGrams = Number(option.dataset.servingGrams);
+  const servingLabel = option.dataset.servingLabel || 'serving';
+  const previous = unitSelect.value;
+  unitSelect.innerHTML = '<option value="grams">grams</option><option value="100g">100 g portions</option><option value="oz">ounces</option>'
+    + (custom ? `<option value="serving">${esc(servingLabel)}</option>` : '');
+  unitSelect.value = custom ? 'serving' : (['grams', '100g', 'oz'].includes(previous) ? previous : 'grams');
+  const gramsPerUnit = unitSelect.value === 'serving' ? servingGrams : unitSelect.value === '100g' ? 100 : unitSelect.value === 'oz' ? 28.349523125 : 1;
+  amountInput.max = String(Math.floor((2000 / gramsPerUnit) * 100) / 100);
+  if (resetAmount) amountInput.value = unitSelect.value === 'grams' ? '100' : '1';
+  if (hint) {
+    hint.textContent = unitSelect.value === 'serving' ? `${servingLabel} = ${servingGrams} g. Nutrition uses your saved serving.`
+      : unitSelect.value === '100g' ? 'Each portion is 100 g.'
+      : unitSelect.value === 'oz' ? '1 ounce = 28.35 g.' : 'Weight in grams.';
+  }
+}
 function renderNutritionist() {
   const u = state.user;
   const p = u.profile;
@@ -3581,7 +3656,7 @@ function renderNutritionist() {
     <div class="section-head">
       <div>
         <h1>Nutritionist</h1>
-        <p class="sub">Calorie and macro targets are calculated from the Mifflin-St Jeor equation and adjusted for your goal. Log food by weight (grams) for the most accurate numbers.</p>
+        <p class="sub">Calorie and macro targets are calculated from the Mifflin-St Jeor equation and adjusted for your goal. Log food by weight, packaged portions or your own serving sizes.</p>
       </div>
       <span class="pill accent">${GOAL_LABELS[p.goal]}</span>
     </div>
@@ -3616,18 +3691,24 @@ function renderNutritionist() {
     </div>
 
     <div class="card">
-      <div class="card-head"><h2>Log food</h2><span class="pill">${todayEntries.length} entries today</span></div>
+      <div class="card-head"><h2>Log food</h2><button class="btn btn-ghost btn-sm" data-action="open-custom-food">+ Custom food</button></div>
       <form data-form="add-food">
         <div class="form-grid">
           <div class="field span-2">
-            <label for="food-name">Food (values per 100 g)</label>
+            <label for="food-name">Food</label>
             <select name="food" id="food-name" required>
-              ${FOOD_DB.map(food => `<option value="${esc(food.name)}">${esc(food.name)} — ${food.cal} kcal / 100 g</option>`).join('')}
+              ${foodOptionsMarkup(u)}
             </select>
           </div>
           <div class="field">
-            <label for="food-grams">Amount (grams)</label>
-            <input type="number" name="grams" id="food-grams" min="1" max="2000" step="1" value="100" required>
+            <label for="food-amount">Amount</label>
+            <input type="number" name="amount" id="food-amount" min="0.01" max="2000" step="0.01" value="100" required>
+          </div>
+          <div class="field">
+            <label for="food-unit">Portion</label>
+            <select name="unit" id="food-unit">
+              <option value="grams">grams</option><option value="100g">100 g portions</option><option value="oz">ounces</option>
+            </select>
           </div>
           <div class="field">
             <label for="food-meal">Meal</label>
@@ -3640,6 +3721,7 @@ function renderNutritionist() {
             <input id="food-date" type="date" name="date" value="${today()}" max="${today()}" required>
           </div>
         </div>
+        <p id="food-portion-hint" class="tiny muted" style="margin-top:8px">Weight in grams.</p>
         <div class="btn-row" style="margin-top:12px">
           <button class="btn btn-primary btn-sm" type="submit">Add to diary</button>
           <span class="tiny muted" style="align-self:center">Tip: 100 g is about a small palm of cooked protein.</span>
@@ -3655,7 +3737,7 @@ function renderNutritionist() {
         return `<div class="meal-title">${meal}</div>${entries.map(entry => `
           <div class="food-row">
             <div>
-              <div class="food-name">${esc(entry.name)} <span class="tiny muted">${entry.grams} g</span></div>
+              <div class="food-name">${esc(entry.name)} <span class="tiny muted">${entry.portion ? `${esc(entry.portion)} · ` : ''}${entry.grams} g</span></div>
               <div class="food-macros">${entry.calories} kcal · P ${entry.protein}g · C ${entry.carbs}g · F ${entry.fat}g</div>
             </div>
             <button class="btn btn-xs btn-ghost" data-action="delete-food" data-id="${esc(entry.id)}" aria-label="Delete entry">✕</button>
@@ -3664,9 +3746,18 @@ function renderNutritionist() {
     </div>
 
     <div class="card">
+      <div class="card-head"><div><h2>My foods</h2><p class="tiny muted" style="margin-top:4px">Your own serving sizes and label nutrition, saved in this browser.</p></div><button class="btn btn-secondary btn-sm" data-action="open-custom-food">+ Add custom food</button></div>
+      ${(u.customFoods || []).length ? u.customFoods.map(food => `
+        <div class="food-row">
+          <div><div class="food-name">${esc(food.name)}</div><div class="food-macros">${esc(food.servingLabel)} · ${food.servingGrams} g · ${food.calories} kcal · P ${food.protein}g · C ${food.carbs}g · F ${food.fat}g</div></div>
+          <button class="btn btn-xs btn-ghost" data-action="delete-custom-food" data-id="${esc(food.id)}" aria-label="Delete custom food ${esc(food.name)}">✕</button>
+        </div>`).join('') : '<div class="empty">No custom foods yet. Add a homemade dish or packaged food with its serving size.</div>'}
+    </div>
+
+    <div class="card">
       <div class="card-head"><h2>Weekly summary</h2><span class="pill">${logged.length} day${logged.length === 1 ? '' : 's'} logged</span></div>
-      <div class="table-wrap">
-        <table>
+      <div class="table-wrap" tabindex="0" role="region" aria-label="Weekly nutrition summary">
+        <table class="weekly-table">
           <thead><tr><th>Day</th><th class="num">Calories</th><th class="num">Protein</th><th class="num">Carbs</th><th class="num">Fat</th><th>Vs target</th></tr></thead>
           <tbody>
             ${summaryDays.map(day => {
@@ -4333,8 +4424,37 @@ function renderModal() {
   if (state.modal.type === 'settings') root.innerHTML = settingsModalMarkup();
   else if (state.modal.type === 'workout') root.innerHTML = workoutModalMarkup();
   else if (state.modal.type === 'recipe') root.innerHTML = recipeModalMarkup();
+  else if (state.modal.type === 'custom-food') root.innerHTML = customFoodModalMarkup();
   const focusable = modalFocusable();
   if (focusable.length) focusable[0].focus();
+}
+
+function customFoodModalMarkup() {
+  return `
+    <div class="modal-overlay" data-action="close-modal">
+      <div class="modal" role="dialog" aria-modal="true" aria-label="Add custom food">
+        <div class="modal-head">
+          <div>
+            <h2>Add a custom food</h2>
+            <p class="small muted">Enter the nutrition shown for one serving you actually use. It stays private in this browser.</p>
+          </div>
+          <button class="icon-btn close" data-action="close-modal" aria-label="Close custom food">✕</button>
+        </div>
+        <form data-form="custom-food">
+          <div class="form-grid">
+            <div class="field span-2"><label for="custom-name">Food name</label><input id="custom-name" name="name" maxlength="120" required placeholder="e.g. Homemade dal"></div>
+            <div class="field"><label for="custom-serving-label">Serving name</label><input id="custom-serving-label" name="servingLabel" maxlength="40" required placeholder="e.g. 1 bowl"></div>
+            <div class="field"><label for="custom-serving-grams">Serving weight (grams)</label><input id="custom-serving-grams" name="servingGrams" type="number" min="1" max="2000" step="0.1" required placeholder="e.g. 250"></div>
+            <div class="field"><label for="custom-calories">Calories per serving (kcal)</label><input id="custom-calories" name="calories" type="number" min="0" max="5000" step="1" required></div>
+            <div class="field"><label for="custom-protein">Protein per serving (g)</label><input id="custom-protein" name="protein" type="number" min="0" max="1000" step="0.1" required></div>
+            <div class="field"><label for="custom-carbs">Carbs per serving (g)</label><input id="custom-carbs" name="carbs" type="number" min="0" max="1000" step="0.1" required></div>
+            <div class="field"><label for="custom-fat">Fat per serving (g)</label><input id="custom-fat" name="fat" type="number" min="0" max="1000" step="0.1" required></div>
+          </div>
+          <p class="tiny muted" style="margin-top:10px">Use the package label or your own recipe calculation. You can later log this food by its serving, grams, 100 g portions or ounces.</p>
+          <div class="btn-row" style="margin-top:14px"><button class="btn btn-primary" type="submit">Save custom food</button><button class="btn btn-ghost" type="button" data-action="close-modal">Cancel</button></div>
+        </form>
+      </div>
+    </div>`;
 }
 
 function settingsModalMarkup() {
@@ -4501,6 +4621,7 @@ function recipeModalMarkup() {
    --------------------------------------------------------------------------- */
 function normalizeUser(user) {
   user.logs = Object.assign(blankLogs(), user.logs || {});
+  if (!Array.isArray(user.customFoods)) user.customFoods = [];
   ['workouts', 'food', 'weights', 'measurements', 'sleep', 'symptoms'].forEach(key => {
     if (!Array.isArray(user.logs[key])) user.logs[key] = [];
   });
@@ -4714,6 +4835,7 @@ function exportData() {
     username: state.user.username,
     profile: state.user.profile,
     logs: state.user.logs,
+    customFoods: state.user.customFoods || [],
     settings: state.user.settings
   };
   download(`trainer4u-${state.user.username}-${today()}.json`, JSON.stringify(payload, null, 2));
@@ -4737,6 +4859,10 @@ function validateImportData(data) {
       throw new Error(`${label} must be ${integer ? 'an integer' : 'a number'} between ${min} and ${max}.`);
     }
     return value;
+  };
+  const requiredNumber = (value, label, min, max) => {
+    if (value === undefined || value === null || value === '') throw new Error(`${label} is required.`);
+    return number(value, label, min, max);
   };
   const choice = (value, label, allowed, fallback) => {
     if (value === undefined || value === null || value === '') return fallback;
@@ -4789,11 +4915,28 @@ function validateImportData(data) {
     meal: choice(entry.meal, 'Meal', ['Breakfast', 'Lunch', 'Dinner', 'Snack'], 'Snack'),
     name: text(entry.name, 'Food name', 120),
     grams: number(entry.grams, 'Food grams', 0, 2000, 0),
+    portion: text(entry.portion, 'Food portion', 80),
     calories: number(entry.calories, 'Food calories', 0, 10000, 0),
     protein: number(entry.protein, 'Food protein', 0, 1000, 0),
     carbs: number(entry.carbs, 'Food carbs', 0, 1000, 0),
     fat: number(entry.fat, 'Food fat', 0, 1000, 0)
   }));
+  const rawCustomFoods = data.customFoods === undefined ? [] : data.customFoods;
+  const customFoods = list(rawCustomFoods, 'Custom food', (entry, index) => {
+    const values = {
+      name: text(entry.name, 'Custom food name', 120).trim(),
+      servingLabel: text(entry.servingLabel, 'Custom serving name', 40).trim(),
+      servingGrams: requiredNumber(entry.servingGrams, 'Custom serving grams', 1, 2000),
+      calories: requiredNumber(entry.calories, 'Custom food calories', 0, 5000),
+      protein: requiredNumber(entry.protein, 'Custom food protein', 0, 1000),
+      carbs: requiredNumber(entry.carbs, 'Custom food carbs', 0, 1000),
+      fat: requiredNumber(entry.fat, 'Custom food fat', 0, 1000)
+    };
+    const validation = validateCustomFood(values);
+    if (validation.errors.length) throw new Error(validation.errors[0][1]);
+    return { id: id(entry.id, `import-custom-food-${index}`), ...validation.values };
+  }, 500);
+  if (new Set(customFoods.map(food => food.id)).size !== customFoods.length) throw new Error('Custom food IDs must be unique.');
   const weights = list(rawLogs.weights, 'Weight', entry => ({
     date: date(entry.date), kg: number(entry.kg, 'Weight', 30, 300)
   }));
@@ -4842,7 +4985,7 @@ function validateImportData(data) {
     theme: choice(rawSettings.theme, 'Theme', ['', 'light', 'dark'], ''),
     trainerMode: choice(rawSettings.trainerMode, 'Trainer mode', ['gym', 'home'], 'gym')
   };
-  return { profile, logs: { workouts, food, weights, measurements, sleep, symptoms, hydration }, settings };
+  return { profile, logs: { workouts, food, weights, measurements, sleep, symptoms, hydration }, customFoods, settings };
 }
 // <logic:end>
 
@@ -4854,6 +4997,7 @@ async function importData(file) {
     if (!confirm('Replace your current logs with the imported data? Your account and username stay the same.')) return;
     state.user.profile = { ...state.user.profile, ...cleaned.profile };
     state.user.logs = cleaned.logs;
+    state.user.customFoods = cleaned.customFoods;
     state.user.settings = { ...state.user.settings, ...cleaned.settings };
     state.user.onboarded = true;
     saveUser();
@@ -4945,6 +5089,10 @@ document.addEventListener('click', event => {
       openModal({ type: 'settings' });
       break;
 
+    case 'open-custom-food':
+      if (u) openModal({ type: 'custom-food' });
+      break;
+
     case 'close-modal':
       // Ignore clicks inside the sheet itself.
       if (trigger.classList.contains('modal-overlay') && event.target !== trigger) break;
@@ -4985,6 +5133,18 @@ document.addEventListener('click', event => {
       renderApp();
       toast('Food entry removed.');
       break;
+
+    case 'delete-custom-food': {
+      if (!u) break;
+      const food = (u.customFoods || []).find(item => item.id === trigger.dataset.id);
+      if (!food) break;
+      if (!confirm(`Remove ${food.name} from My foods? Existing diary entries will stay.`)) break;
+      u.customFoods = u.customFoods.filter(item => item.id !== food.id);
+      saveUser();
+      renderApp();
+      toast('Custom food removed. Diary entries were kept.');
+      break;
+    }
 
     case 'delete-weight':
       if (!u) break;
@@ -5103,19 +5263,47 @@ document.addEventListener('submit', async event => {
     }
     if (!u) return;
 
+    if (type === 'custom-food') {
+      if ((u.customFoods || []).length >= 500) { toast('My foods is full. Remove a custom food before adding another.'); return; }
+      const validation = validateCustomFood({
+        name: formData.get('name'),
+        servingLabel: formData.get('servingLabel'),
+        servingGrams: formData.get('servingGrams'),
+        calories: formData.get('calories'),
+        protein: formData.get('protein'),
+        carbs: formData.get('carbs'),
+        fat: formData.get('fat')
+      });
+      if (validation.errors.length) { toast(validation.errors[0][1]); return; }
+      u.customFoods = u.customFoods || [];
+      u.customFoods.push({ id: uid(), ...validation.values });
+      saveUser();
+      closeModal();
+      renderApp();
+      toast(`${validation.values.name} saved to My foods.`);
+      return;
+    }
+
     if (type === 'add-food') {
       const date = String(formData.get('date') || today());
-      const name = String(formData.get('food') || '');
-      const grams = Number(formData.get('grams'));
+      const key = String(formData.get('food') || '');
+      const amount = Number(formData.get('amount'));
+      const unit = String(formData.get('unit') || 'grams');
       const meal = String(formData.get('meal') || 'Snack');
       if (date > today()) { toast('You cannot log food in the future.'); return; }
-      if (!grams || grams <= 0) { toast('Enter a portion in grams.'); return; }
-      const food = FOOD_DB.find(item => item.name === name);
+      const food = key.startsWith('custom:')
+        ? (u.customFoods || []).find(item => item.id === key.slice(7))
+        : key.startsWith('db:') ? FOOD_DB.find(item => item.name === key.slice(3)) : null;
       if (!food) { toast('Pick a food from the list.'); return; }
-      u.logs.food.push(sampleFoodEntry(date, meal, name, Math.min(grams, 2000)));
+      const grams = gramsForPortion(amount, unit, food);
+      if (!Number.isFinite(grams) || grams <= 0 || grams > 2000) { toast('Enter a portion that weighs between 0 and 2,000 grams.'); return; }
+      const portion = unit === 'serving' ? `${Number(amount)} × ${food.servingLabel}`
+        : unit === '100g' ? `${Number(amount)} × 100 g`
+        : unit === 'oz' ? `${Number(amount)} oz` : '';
+      u.logs.food.push(foodEntryFromFood(date, meal, food, grams, portion));
       saveUser();
       renderApp();
-      toast(`${name} added to ${meal.toLowerCase()}.`);
+      toast(`${food.name} added to ${meal.toLowerCase()}.`);
       return;
     }
 
@@ -5239,6 +5427,11 @@ document.addEventListener('change', async event => {
   const input = event.target;
   const onboardingForm = input.closest('form[data-form="onboarding"]');
   if (onboardingForm) clearOnboardingErrors(onboardingForm);
+  if (input.id === 'food-name' || input.id === 'food-unit') {
+    const form = input.closest('form[data-form="add-food"]');
+    if (form) syncFoodPortionForm(form, true);
+    return;
+  }
   if (input.id === 'import-file' && input.files && input.files[0]) {
     await importData(input.files[0]);
     input.value = '';

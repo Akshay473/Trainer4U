@@ -21,8 +21,8 @@
     "vanilla-javascript",
     "pwa"
   ],
-  "author": "Akshay",
-  "license": "MIT",
+  "author": "Akshay Shibu",
+  "license": "UNLICENSED",
   "repository": {
     "type": "git",
     "url": "https://github.com/Akshay473/Trainer4U.git"
@@ -31,5 +31,6 @@
     "axe-core": "^4.14.0",
     "eslint": "^8.57.1",
     "playwright": "^1.65.0"
-  }
+  },
+  "private": true
 }

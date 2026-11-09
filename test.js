@@ -271,6 +271,14 @@ check('non-cryptographic password fallback removed', !html.includes('fallbackHas
 const serviceWorker = fs.readFileSync(path.join(__dirname, 'sw.js'), 'utf8');
 check('service worker limits cache deletion to its own prefix', serviceWorker.includes('name.startsWith(CACHE_PREFIX) && name !== CACHE_NAME'));
 check('service worker restricts requests to its own scope', serviceWorker.includes('url.pathname.startsWith(APP_SCOPE.pathname)'));
+const proprietaryLicense = fs.readFileSync(path.join(__dirname, 'LICENSE'), 'utf8');
+const legacyMitLicense = fs.readFileSync(path.join(__dirname, 'licenses/MIT-through-c5b049e.txt'), 'utf8');
+const packageMetadata = JSON.parse(fs.readFileSync(path.join(__dirname, 'package.json'), 'utf8'));
+check('proprietary license preserves the exact MIT cutoff', proprietaryLicense.includes('c5b049e927cbf6f9edf84ab3bfba4a3482fd9e5c') && proprietaryLicense.includes('commits after the commit identified above'));
+check('license transition does not revoke earlier MIT permissions', proprietaryLicense.includes('does not') && proprietaryLicense.includes('revokes, narrows, or otherwise changes any permission'));
+check('license does not claim general ideas or independent development', proprietaryLicense.includes('not general ideas, concepts, features') && proprietaryLicense.includes('independently developed'));
+check('legacy MIT permission text remains available', legacyMitLicense.startsWith('MIT License') && legacyMitLicense.includes('Permission is hereby granted, free of charge'));
+check('package metadata prevents an unintended open-source or publish declaration', packageMetadata.license === 'UNLICENSED' && packageMetadata.private === true);
 check('progressive overload uses 12-rep upper bound', html.includes("const topOfRange = goal === 'lose' ? 15 : 12;"));
 for (const size of [192, 512]) {
   const icon = require('fs').readFileSync(path.join(__dirname, `icons/manifest-${size}.png`));

@@ -1,21 +1,56 @@
-MIT License
+Trainer4U Proprietary License
 
-Copyright (c) 2026 Akshay
+Copyright (c) 2026 Akshay Shibu. All rights reserved.
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+1. Scope and license boundary
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+The final Trainer4U commit distributed under the MIT License is:
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+  c5b049e927cbf6f9edf84ab3bfba4a3482fd9e5c
+
+That commit is also identified by the tag "mit-final". That commit, all
+earlier commits, and releases made from them remain available under the MIT
+License historically distributed with those versions. The exact MIT text is
+preserved in licenses/MIT-through-c5b049e.txt.
+
+This Proprietary License applies only to source code, assets, documentation,
+and associated content in commits after the commit identified above (the
+"Proprietary Versions"), unless a file expressly states otherwise. Nothing in
+this license revokes, narrows, or otherwise changes any permission already
+granted for an earlier MIT-licensed version.
+
+2. Permitted use
+
+Subject to this license, you may:
+
+(a) access and use the official hosted Trainer4U application for personal,
+    non-commercial purposes; and
+(b) view the Proprietary Versions for evaluation and security review.
+
+3. Restrictions
+
+Except for the limited permissions above, rights granted by applicable law,
+or separate prior written permission from the copyright holder, you may not
+copy, reproduce, modify, merge, publish, distribute, sublicense, sell, host
+as a service, or create derivative works from the Proprietary Versions, in
+whole or in part.
+
+This license does not grant permission to use the Trainer4U name, logo, or
+branding. Public visibility of the source code does not make it open source
+or grant additional reuse rights.
+
+4. Ideas and independent development
+
+Copyright protects original expression, not general ideas, concepts, features,
+methods, or functionality. This license does not claim ownership of general
+fitness or software ideas, and it does not restrict independently developed
+software that does not copy protected expression from the Proprietary Versions.
+
+5. No warranty
+
+THE PROPRIETARY VERSIONS ARE PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE, AND NON-INFRINGEMENT. TO THE EXTENT PERMITTED
+BY APPLICABLE LAW, THE COPYRIGHT HOLDER SHALL NOT BE LIABLE FOR ANY CLAIM,
+DAMAGES, OR OTHER LIABILITY ARISING FROM OR RELATED TO THE PROPRIETARY VERSIONS
+OR THEIR USE.

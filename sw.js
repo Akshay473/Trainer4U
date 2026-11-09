@@ -1,3 +1,5 @@
+// Trainer4U — Copyright (c) 2026 Akshay Shibu. All rights reserved.
+// Proprietary after commit c5b049e927cbf6f9edf84ab3bfba4a3482fd9e5c; earlier versions remain MIT-licensed.
 const CACHE_PREFIX = 'trainer4u-';
 const CACHE_NAME = `${CACHE_PREFIX}v2026.11.09`;
 const APP_SCOPE = new URL('./', self.location.href);

@@ -19,12 +19,12 @@
 | **Onboarding** | Age, sex, height, weight, target weight, goal, diet, allergies, injuries, equipment and training days. |
 | **Dashboard** | Goal progress, today's plan, logging streak, key stats and coach's notes from the current profile. |
 | **Trainer** | Weekly gym or home plans with injury-aware exercise filtering, sets/reps/rest and progressive-overload hints. |
-| **Nutritionist** | Mifflin-St Jeor BMR/TDEE, reconciled calorie and macro targets, food diary and seven-day summary. |
+| **Nutritionist** | Mifflin-St Jeor BMR/TDEE, reconciled calorie and macro targets, custom foods with personal serving sizes, gram/100 g/ounce/serving logging and a seven-day summary. |
 | **Chef** | 60+ recipes with cuisine, diet, meal and allergy filters, plus ingredient matching and step-by-step cooking. |
 | **Health check** | BMI, hydration, sleep, symptom notes, wellness guidance and safety warnings. |
 | **Progress** | Weight, measurement and weekly workout charts with history tables. |
 | **Course correction** | Notices missed workouts, calorie drift, wrong-way weight trends, low protein and poor sleep. |
-| **Data controls** | Validated JSON export/import, log reset, profile deletion and light/dark themes. |
+| **Data controls** | Validated JSON export/import including custom foods, log reset, profile deletion and light/dark themes. |
 | **PWA and accessibility** | Offline app shell, valid install icons, labelled controls, keyboard-trapped modals and responsive layouts. |
 
 ## Formulas
@@ -62,7 +62,7 @@ npm ci
 npm test                 # pure logic, migration, import validation and security checks
 npm run lint             # no-undef, no-const-assign and no-redeclare
 npx playwright install chromium
-npm run test:browser     # signup/onboarding, Chef, charts, import XSS, modals, axe, offline and mobile
+npm run test:browser     # signup/onboarding, custom foods, Chef, charts, import XSS, modals, axe, offline and mobile
 ```
 
 CI runs all of these checks on pushes and pull requests. GitHub Pages publishes the static app separately; the workflow does not include a second competing deployment job.
@@ -99,6 +99,7 @@ Trainer4U provides general fitness and wellness information for healthy adults. 
 - [x] PWA offline support
 - [x] Unit tests and browser smoke/accessibility checks
 - [x] GitHub Actions CI
+- [x] Custom foods with personal serving sizes and portion-based logging
 - [ ] Workout reminders (opt-in)
 - [ ] Water and sleep quick-log widgets
 - [ ] Printable weekly plan

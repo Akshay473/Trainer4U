@@ -2,7 +2,7 @@
 
 **Your pocket fitness coach — client-side, no backend, no runtime libraries.**
 
-[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![License](https://img.shields.io/badge/license-Proprietary-red.svg)](LICENSE)
 [![Live Demo](https://img.shields.io/badge/live--demo-github--pages-blue.svg)](https://akshay473.github.io/Trainer4U/)
 
 ## Demo
@@ -81,6 +81,8 @@ trainer4u/
 ├── .eslintrc.json
 ├── .github/workflows/ci.yml
 ├── LICENSE
+├── licenses/
+│   └── MIT-through-c5b049e.txt
 └── CONTRIBUTING.md
 ```
 
@@ -105,6 +107,14 @@ Trainer4U provides general fitness and wellness information for healthy adults. 
 - [ ] Printable weekly plan
 - [ ] Unit toggle (kg/lb, cm/ft-in)
 - [ ] Optional encrypted backups
+
+## License and copying
+
+Trainer4U is source-visible and proprietary for development after commit [`c5b049e927cbf6f9edf84ab3bfba4a3482fd9e5c`](https://github.com/Akshay473/Trainer4U/commit/c5b049e927cbf6f9edf84ab3bfba4a3482fd9e5c). All rights in those later versions are reserved; public visibility does not grant permission to copy, modify, redistribute, sell, or host them.
+
+Commit `c5b049e` and all earlier commits and releases remain under their original MIT License. The [`mit-final`](https://github.com/Akshay473/Trainer4U/tree/mit-final) tag identifies that final MIT-licensed version, and its exact license text is preserved in [`licenses/MIT-through-c5b049e.txt`](licenses/MIT-through-c5b049e.txt). The transition does not revoke earlier MIT permissions.
+
+These terms protect original expression, not general fitness or software ideas, features, methods, or independently developed software. See [`LICENSE`](LICENSE) for the full boundary and permitted uses.
 
 ## Feedback
 

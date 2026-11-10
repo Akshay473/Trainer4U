@@ -10,7 +10,7 @@ Versions through commit c5b049e927cbf6f9edf84ab3bfba4a3482fd9e5c remain MIT-lice
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="description" content="Trainer4U — a private, local-only fitness coaching app for workouts, nutrition, recipes, wellness and progress.">
 <meta name="color-scheme" content="light dark">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-lxHtVGUW0SVdXaZ3aWGaXgWDGnCSviTHmklPy/Om5Es='; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-Qo5DWq+YkT7lTDJDkzzebNWWxEKIuKQZWJFujE2R4IQ='; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'">
 <meta name="theme-color" content="#0F172A">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="#0F172A">
@@ -755,6 +755,11 @@ function toggleTheme() {
 /* ---------------------------------------------------------------------------
    Built-in food database (values per 100 g)
    --------------------------------------------------------------------------- */
+// <logic:start>
+// App build version. A test keeps this in sync with the service worker cache name.
+const APP_VERSION = '2026.11.10';
+// <logic:end>
+
 // <logic:start>
 // Approximate per-100 g nutrition. Entries with src were verified 2026-11-10 against the named
 // USDA FoodData Central record (FDC id) or carry an explicit recipe assumption; basis records
@@ -1884,6 +1889,7 @@ function renderAuth() {
           </form>
 
           <p class="tiny muted" style="margin-top:14px">Passwords are salted and hashed. Data is stored only in this browser. Trainer4U is a wellness tool, not medical care.</p>
+          <p class="tiny muted" style="margin-top:6px">Build ${APP_VERSION}</p>
         </section>
       </div>
     </div>`;
@@ -1930,7 +1936,7 @@ function renderApp() {
         </button>`).join('')}
     </nav>
     <main class="main">${content}</main>
-    <footer class="foot">Private to this browser · Your profile and logs never leave your device · Not medical advice</footer>`;
+    <footer class="foot">Private to this browser · Your profile and logs never leave your device · Not medical advice · Build ${APP_VERSION}</footer>`;
 
   if (state.tab === 'progress') requestAnimationFrame(() => drawCharts());
 }
@@ -5590,8 +5596,19 @@ init();
 // Register service worker only on http/https (not file://)
 if ('serviceWorker' in navigator && window.location.protocol !== 'file:') {
   window.addEventListener('load', () => {
+    // Pages already controlled by an older worker reload once when a new one takes
+    // over, so deployed fixes show up without a manual hard refresh. First-ever
+    // installs have no controller and must not reload.
+    const hadController = Boolean(navigator.serviceWorker.controller);
+    let reloading = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (!hadController || reloading) return;
+      reloading = true;
+      window.location.reload();
+    });
     navigator.serviceWorker.register('./sw.js')
       .then(registration => {
+        registration.update();
         console.log('SW registered: scope', registration.scope);
       })
       .catch(registrationError => {

@@ -10,7 +10,7 @@ Versions through commit c5b049e927cbf6f9edf84ab3bfba4a3482fd9e5c remain MIT-lice
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="description" content="Trainer4U — a private, local-only fitness coaching app for workouts, nutrition, recipes, wellness and progress.">
 <meta name="color-scheme" content="light dark">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-WEv1FNSLYwVhTr3YsWfNKfLW+kQFFr3jiNy7RGVYoR0='; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-lSU2M5UC2FMuZ4pIcqADsVnJ9ZTp9UKm+JAQWp06BRk='; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'">
 <meta name="theme-color" content="#0F172A">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="#0F172A">
@@ -755,6 +755,8 @@ function toggleTheme() {
 /* ---------------------------------------------------------------------------
    Built-in food database (values per 100 g)
    --------------------------------------------------------------------------- */
+// <logic:start>
+// Approximate per-100 g nutrition (USDA/IFCT-derived estimates). Cooked unless the name says otherwise.
 const FOOD_DB = [
   { name: 'Chicken breast', cal: 165, protein: 31, carbs: 0, fat: 3.6 },
   { name: 'Chicken thigh', cal: 209, protein: 26, carbs: 0, fat: 10.9 },
@@ -795,8 +797,68 @@ const FOOD_DB = [
   { name: 'Feta cheese', cal: 264, protein: 14, carbs: 4, fat: 21 },
   { name: 'Mozzarella', cal: 280, protein: 28, carbs: 3, fat: 17 },
   { name: 'Dark chocolate', cal: 546, protein: 5, carbs: 61, fat: 31 },
-  { name: 'Orange', cal: 47, protein: 0.9, carbs: 12, fat: 0.1 }
+  { name: 'Orange', cal: 47, protein: 0.9, carbs: 12, fat: 0.1 },
+  { name: 'Roti / chapati', cal: 300, protein: 9, carbs: 55, fat: 4 },
+  { name: 'Naan', cal: 310, protein: 9, carbs: 50, fat: 5.7 },
+  { name: 'Paratha', cal: 320, protein: 6, carbs: 44, fat: 12 },
+  { name: 'Basmati rice, cooked', cal: 121, protein: 3.5, carbs: 25.2, fat: 0.4 },
+  { name: 'Idli', cal: 150, protein: 4, carbs: 30, fat: 0.4 },
+  { name: 'Dosa', cal: 168, protein: 4, carbs: 29, fat: 3.7 },
+  { name: 'Masala dosa', cal: 200, protein: 4.5, carbs: 30, fat: 7 },
+  { name: 'Uttapam', cal: 190, protein: 5, carbs: 30, fat: 6 },
+  { name: 'Poha, cooked', cal: 120, protein: 2.2, carbs: 25, fat: 1.8 },
+  { name: 'Upma, cooked', cal: 155, protein: 4, carbs: 24, fat: 5 },
+  { name: 'Khichdi, cooked', cal: 130, protein: 4.5, carbs: 21, fat: 3 },
+  { name: 'Besan chilla', cal: 180, protein: 9, carbs: 22, fat: 6 },
+  { name: 'Dal (lentil curry)', cal: 110, protein: 6.5, carbs: 16, fat: 2 },
+  { name: 'Rajma (kidney bean curry)', cal: 120, protein: 6.5, carbs: 17, fat: 2.5 },
+  { name: 'Chole (chickpea curry)', cal: 140, protein: 6.5, carbs: 18, fat: 4.5 },
+  { name: 'Sambar', cal: 80, protein: 3.5, carbs: 11, fat: 2.5 },
+  { name: 'Rasam', cal: 30, protein: 1.5, carbs: 5, fat: 0.8 },
+  { name: 'Soya chunks, cooked', cal: 120, protein: 17, carbs: 11, fat: 0.5 },
+  { name: 'Sprouted moong, raw', cal: 30, protein: 3, carbs: 6, fat: 0.2 },
+  { name: 'Curd (dahi, plain)', cal: 60, protein: 3.5, carbs: 4.7, fat: 3 },
+  { name: 'Buttermilk (chaas)', cal: 25, protein: 1.5, carbs: 2.5, fat: 1 },
+  { name: 'Lassi, sweet', cal: 90, protein: 2.5, carbs: 13, fat: 3 },
+  { name: 'Ghee', cal: 900, protein: 0, carbs: 0, fat: 100 },
+  { name: 'Palak paneer', cal: 120, protein: 6, carbs: 5, fat: 9 },
+  { name: 'Aloo gobi', cal: 90, protein: 2, carbs: 11, fat: 4.5 },
+  { name: 'Bhindi masala (okra)', cal: 70, protein: 2, carbs: 7, fat: 4 },
+  { name: 'Baingan bharta', cal: 80, protein: 1.8, carbs: 8, fat: 4.5 },
+  { name: 'Mixed vegetable curry', cal: 75, protein: 2, carbs: 8, fat: 4 },
+  { name: 'Chicken curry', cal: 130, protein: 12, carbs: 3, fat: 8 },
+  { name: 'Butter chicken', cal: 150, protein: 11, carbs: 5, fat: 10 },
+  { name: 'Egg curry', cal: 130, protein: 7, carbs: 3, fat: 10 },
+  { name: 'Fish curry', cal: 110, protein: 11, carbs: 3, fat: 6 },
+  { name: 'Chicken biryani', cal: 180, protein: 8, carbs: 20, fat: 7 },
+  { name: 'Vegetable biryani', cal: 150, protein: 3.5, carbs: 24, fat: 4.5 },
+  { name: 'Samosa', cal: 260, protein: 4, carbs: 30, fat: 14 },
+  { name: 'Vada pav', cal: 290, protein: 5.5, carbs: 38, fat: 13 },
+  { name: 'Pakora, fried', cal: 250, protein: 6, carbs: 22, fat: 15 },
+  { name: 'Coconut chutney', cal: 160, protein: 2.5, carbs: 7, fat: 14 },
+  { name: 'Curd rice', cal: 110, protein: 3.5, carbs: 16, fat: 3.5 },
+  { name: 'Raita', cal: 70, protein: 3, carbs: 5, fat: 4 },
+  { name: 'Chai with milk and sugar', cal: 50, protein: 1.6, carbs: 7, fat: 1.6 },
+  { name: 'Jalebi', cal: 380, protein: 1.5, carbs: 72, fat: 9 },
+  { name: 'Gulab jamun', cal: 350, protein: 5, carbs: 50, fat: 13 },
+  { name: 'Mango', cal: 60, protein: 0.8, carbs: 15, fat: 0.4 },
+  { name: 'Papaya', cal: 43, protein: 0.5, carbs: 11, fat: 0.3 },
+  { name: 'Guava', cal: 68, protein: 2.6, carbs: 14, fat: 1 },
+  { name: 'Peanuts, roasted', cal: 567, protein: 25.8, carbs: 16, fat: 49 },
+  { name: 'Roasted chana', cal: 370, protein: 20, carbs: 57, fat: 6 }
 ];
+
+// Case-insensitive substring filter over the built-in and custom food lists.
+// An empty or blank query returns both lists unchanged.
+function filterFoodItems(query, dbFoods, customFoods) {
+  const q = String(query || '').trim().toLowerCase();
+  const matches = name => !q || String(name || '').toLowerCase().includes(q);
+  return {
+    builtIn: (Array.isArray(dbFoods) ? dbFoods : []).filter(food => food && matches(food.name)),
+    custom: (Array.isArray(customFoods) ? customFoods : []).filter(food => food && matches(food.name))
+  };
+}
+// <logic:end>
 
 /* ---------------------------------------------------------------------------
    Exercise database
@@ -3607,10 +3669,12 @@ function macroBar(label, value, target, unit) {
       <div class="progress ${over ? 'warn' : 'good'}"><span style="width:${pct}%"></span></div>
     </div>`;
 }
-function foodOptionsMarkup(user) {
-  const builtIn = FOOD_DB.map(food => `<option value="db:${esc(food.name)}">${esc(food.name)} - ${food.cal} kcal / 100 g</option>`).join('');
-  const custom = (user.customFoods || []).map(food => `<option value="custom:${esc(food.id)}" data-custom="true" data-serving-grams="${esc(food.servingGrams)}" data-serving-label="${esc(food.servingLabel)}">${esc(food.name)} - ${food.calories} kcal / ${esc(food.servingLabel)}</option>`).join('');
-  return `<optgroup label="Food database">${builtIn}</optgroup>${custom ? `<optgroup label="My foods">${custom}</optgroup>` : ''}`;
+function foodOptionsMarkup(user, query) {
+  const filtered = filterFoodItems(query, FOOD_DB, user.customFoods || []);
+  const builtIn = filtered.builtIn.map(food => `<option value="db:${esc(food.name)}">${esc(food.name)} - ${food.cal} kcal / 100 g</option>`).join('');
+  const custom = filtered.custom.map(food => `<option value="custom:${esc(food.id)}" data-custom="true" data-serving-grams="${esc(food.servingGrams)}" data-serving-label="${esc(food.servingLabel)}">${esc(food.name)} - ${food.calories} kcal / ${esc(food.servingLabel)}</option>`).join('');
+  if (!builtIn && !custom) return '<option value="" disabled selected>No matches - add it as a custom food</option>';
+  return `${builtIn ? `<optgroup label="Food database">${builtIn}</optgroup>` : ''}${custom ? `<optgroup label="My foods">${custom}</optgroup>` : ''}`;
 }
 function syncFoodPortionForm(form, resetAmount) {
   const foodSelect = form.querySelector('[name="food"]');
@@ -3701,6 +3765,7 @@ function renderNutritionist() {
         <div class="form-grid">
           <div class="field span-2">
             <label for="food-name">Food</label>
+            <input type="search" id="food-filter" aria-label="Filter the food list" placeholder="Type to filter the food list, e.g. dosa" autocomplete="off" style="margin-bottom:6px">
             <select name="food" id="food-name" required>
               ${foodOptionsMarkup(u)}
             </select>
@@ -5426,6 +5491,16 @@ document.addEventListener('submit', async event => {
 document.addEventListener('input', event => {
   const form = event.target.closest('form[data-form="onboarding"]');
   if (form) clearOnboardingErrors(form);
+  if (event.target.id === 'food-filter') {
+    const foodForm = event.target.closest('form[data-form="add-food"]');
+    const foodSelect = foodForm && foodForm.querySelector('#food-name');
+    if (!foodSelect || !state.user) return;
+    const previous = foodSelect.value;
+    foodSelect.innerHTML = foodOptionsMarkup(state.user, event.target.value);
+    const stillThere = Array.from(foodSelect.options).some(option => option.value === previous);
+    if (stillThere) foodSelect.value = previous;
+    syncFoodPortionForm(foodForm, !stillThere);
+  }
 });
 
 document.addEventListener('change', async event => {

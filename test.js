@@ -45,7 +45,7 @@ const memoryStorage = (() => {
   return { getItem: key => values.has(key) ? values.get(key) : null, setItem: (key, value) => values.set(key, String(value)) };
 })();
 const factory = new Function('ACTIVITY_MULTIPLIERS', 'GOAL_LABELS', 'today', 'dateOffset', 'localStorage', 'DB_KEY', 'SCHEMA_VERSION', 'uid',
-  code + '\nreturn { clamp, round, safeNum, sortedWeights, currentWeight, weightProgress, workoutsLast7, sleepAverage, loggedDays, bmiFor, bmiCategory, weightTrendPerWeek, weightTrendCategory, calorieDrift, proteinGap, sleepDeficit, macroTargets, baseTargets, getInsights, validateOnboarding, validateCustomFood, gramsForPortion, foodEntryFromFood, validateImportData, recipeMatchScore, weekStart, loadDB, esc, escapeHTML };\n');
+  code + '\nreturn { clamp, round, safeNum, sortedWeights, currentWeight, weightProgress, workoutsLast7, sleepAverage, loggedDays, bmiFor, bmiCategory, weightTrendPerWeek, weightTrendCategory, calorieDrift, proteinGap, sleepDeficit, macroTargets, baseTargets, getInsights, validateOnboarding, validateCustomFood, gramsForPortion, foodEntryFromFood, validateImportData, recipeMatchScore, weekStart, loadDB, esc, escapeHTML, FOOD_DB, filterFoodItems };\n');
 const L = factory(ACTIVITY_MULTIPLIERS, GOAL_LABELS, todayMock, dateOffsetMock, memoryStorage, 'trainer4u_db_v2', 2, () => 'test-food-id');
 
 function mkUser(over = {}) {
@@ -225,6 +225,25 @@ eq('custom entry scales fat', customEntry.fat, 9);
 eq('custom entry preserves portion label', customEntry.portion, '1.5 × 1 bowl');
 const builtInEntry = L.foodEntryFromFood('2026-11-05', 'Breakfast', { name: 'Test food', cal: 143, protein: 12.6, carbs: 0.7, fat: 9.5 }, 100);
 eq('built-in food keeps per-100g calories', builtInEntry.calories, 143);
+
+// --- food database coverage and filtering ---
+const foodNames = L.FOOD_DB.map(food => food.name);
+for (const staple of ['Roti / chapati', 'Dosa', 'Idli', 'Dal (lentil curry)', 'Chole (chickpea curry)', 'Rajma (kidney bean curry)', 'Chicken biryani', 'Curd (dahi, plain)', 'Ghee', 'Palak paneer', 'Sambar', 'Poha, cooked']) {
+  check(`food database covers ${staple}`, foodNames.includes(staple));
+}
+check('food database has no duplicate names', new Set(foodNames).size === foodNames.length);
+const implausible = L.FOOD_DB.filter(food => {
+  const estimate = food.protein * 4 + food.carbs * 4 + food.fat * 9;
+  return !(food.cal > 0 && food.cal <= 1000 && estimate >= food.cal * 0.5 && estimate <= food.cal * 1.6);
+});
+eq('food database values stay nutritionally plausible', implausible.length, 0);
+eq('blank filter returns the whole database', L.filterFoodItems('  ', L.FOOD_DB, []).builtIn.length, L.FOOD_DB.length);
+eq('filter matches case-insensitively', L.filterFoodItems('DOSA', L.FOOD_DB, []).builtIn.length, 2);
+check('filter matches substrings', L.filterFoodItems('dal', L.FOOD_DB, [customFood]).custom.length === 1 &&
+  L.filterFoodItems('dal', L.FOOD_DB, [customFood]).custom[0].name === 'Homemade dal');
+check('filter handles a missing custom library', L.filterFoodItems('egg', L.FOOD_DB, null).builtIn.length >= 2);
+eq('filter with no matches returns empty lists', L.filterFoodItems('zzzz-nothing', L.FOOD_DB, [customFood]).builtIn.length +
+  L.filterFoodItems('zzzz-nothing', L.FOOD_DB, [customFood]).custom.length, 0);
 
 const validExport = mkUser();
 const cleaned = L.validateImportData({ profile: validExport.profile, logs: validExport.logs, settings: validExport.settings });

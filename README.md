@@ -19,7 +19,7 @@
 | **Onboarding** | Age, sex, height, weight, target weight, goal, diet, allergies, injuries, equipment and training days. |
 | **Dashboard** | Goal progress, today's plan, logging streak, key stats and coach's notes from the current profile. |
 | **Trainer** | Weekly gym or home plans with injury-aware exercise filtering, sets/reps/rest and progressive-overload hints. |
-| **Nutritionist** | Mifflin-St Jeor BMR/TDEE, reconciled calorie and macro targets, custom foods with personal serving sizes, gram/100 g/ounce/serving logging and a seven-day summary. |
+| **Nutritionist** | Mifflin-St Jeor BMR/TDEE, reconciled calorie and macro targets, a filterable food database with Indian staples, custom foods with personal serving sizes, gram/100 g/ounce/serving logging and a seven-day summary. |
 | **Chef** | 60+ recipes with cuisine, diet, meal and allergy filters, plus ingredient matching and step-by-step cooking. |
 | **Health check** | BMI, hydration, sleep, symptom notes, wellness guidance and safety warnings. |
 | **Progress** | Weight, measurement and weekly workout charts with history tables. |

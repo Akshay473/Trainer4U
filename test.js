@@ -232,6 +232,15 @@ for (const staple of ['Roti / chapati', 'Dosa', 'Idli', 'Dal (lentil curry)', 'C
   check(`food database covers ${staple}`, foodNames.includes(staple));
 }
 check('food database has no duplicate names', new Set(foodNames).size === foodNames.length);
+const sourced = L.FOOD_DB.filter(food => food.src || food.basis);
+check('added foods carry provenance', sourced.length >= 40);
+check('provenance fields are paired and well formed', sourced.every(food =>
+  typeof food.src === 'string' && food.src.length > 10 &&
+  ['raw', 'cooked', 'prepared'].includes(food.basis)));
+const fdcSourced = sourced.filter(food => /^USDA FDC \d+/.test(food.src));
+check('verified entries name their USDA FDC record', fdcSourced.length >= 5);
+eq('roti adopts its verified FDC values', L.FOOD_DB.find(food => food.name === 'Roti / chapati').cal, 299);
+eq('idli adopts its verified FDC values', L.FOOD_DB.find(food => food.name === 'Idli').cal, 128);
 const implausible = L.FOOD_DB.filter(food => {
   const estimate = food.protein * 4 + food.carbs * 4 + food.fat * 9;
   return !(food.cal > 0 && food.cal <= 1000 && estimate >= food.cal * 0.5 && estimate <= food.cal * 1.6);

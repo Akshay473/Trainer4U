@@ -10,7 +10,7 @@ Versions through commit c5b049e927cbf6f9edf84ab3bfba4a3482fd9e5c remain MIT-lice
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="description" content="Trainer4U — a private, local-only fitness coaching app for workouts, nutrition, recipes, wellness and progress.">
 <meta name="color-scheme" content="light dark">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-lSU2M5UC2FMuZ4pIcqADsVnJ9ZTp9UKm+JAQWp06BRk='; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-lxHtVGUW0SVdXaZ3aWGaXgWDGnCSviTHmklPy/Om5Es='; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'">
 <meta name="theme-color" content="#0F172A">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="#0F172A">
@@ -756,7 +756,9 @@ function toggleTheme() {
    Built-in food database (values per 100 g)
    --------------------------------------------------------------------------- */
 // <logic:start>
-// Approximate per-100 g nutrition (USDA/IFCT-derived estimates). Cooked unless the name says otherwise.
+// Approximate per-100 g nutrition. Entries with src were verified 2026-11-10 against the named
+// USDA FoodData Central record (FDC id) or carry an explicit recipe assumption; basis records
+// whether values describe the food raw, cooked, or prepared (recipe/ready-to-eat).
 const FOOD_DB = [
   { name: 'Chicken breast', cal: 165, protein: 31, carbs: 0, fat: 3.6 },
   { name: 'Chicken thigh', cal: 209, protein: 26, carbs: 0, fat: 10.9 },
@@ -798,54 +800,54 @@ const FOOD_DB = [
   { name: 'Mozzarella', cal: 280, protein: 28, carbs: 3, fat: 17 },
   { name: 'Dark chocolate', cal: 546, protein: 5, carbs: 61, fat: 31 },
   { name: 'Orange', cal: 47, protein: 0.9, carbs: 12, fat: 0.1 },
-  { name: 'Roti / chapati', cal: 300, protein: 9, carbs: 55, fat: 4 },
-  { name: 'Naan', cal: 310, protein: 9, carbs: 50, fat: 5.7 },
-  { name: 'Paratha', cal: 320, protein: 6, carbs: 44, fat: 12 },
-  { name: 'Basmati rice, cooked', cal: 121, protein: 3.5, carbs: 25.2, fat: 0.4 },
-  { name: 'Idli', cal: 150, protein: 4, carbs: 30, fat: 0.4 },
-  { name: 'Dosa', cal: 168, protein: 4, carbs: 29, fat: 3.7 },
-  { name: 'Masala dosa', cal: 200, protein: 4.5, carbs: 30, fat: 7 },
-  { name: 'Uttapam', cal: 190, protein: 5, carbs: 30, fat: 6 },
-  { name: 'Poha, cooked', cal: 120, protein: 2.2, carbs: 25, fat: 1.8 },
-  { name: 'Upma, cooked', cal: 155, protein: 4, carbs: 24, fat: 5 },
-  { name: 'Khichdi, cooked', cal: 130, protein: 4.5, carbs: 21, fat: 3 },
-  { name: 'Besan chilla', cal: 180, protein: 9, carbs: 22, fat: 6 },
-  { name: 'Dal (lentil curry)', cal: 110, protein: 6.5, carbs: 16, fat: 2 },
-  { name: 'Rajma (kidney bean curry)', cal: 120, protein: 6.5, carbs: 17, fat: 2.5 },
-  { name: 'Chole (chickpea curry)', cal: 140, protein: 6.5, carbs: 18, fat: 4.5 },
-  { name: 'Sambar', cal: 80, protein: 3.5, carbs: 11, fat: 2.5 },
-  { name: 'Rasam', cal: 30, protein: 1.5, carbs: 5, fat: 0.8 },
-  { name: 'Soya chunks, cooked', cal: 120, protein: 17, carbs: 11, fat: 0.5 },
-  { name: 'Sprouted moong, raw', cal: 30, protein: 3, carbs: 6, fat: 0.2 },
-  { name: 'Curd (dahi, plain)', cal: 60, protein: 3.5, carbs: 4.7, fat: 3 },
-  { name: 'Buttermilk (chaas)', cal: 25, protein: 1.5, carbs: 2.5, fat: 1 },
-  { name: 'Lassi, sweet', cal: 90, protein: 2.5, carbs: 13, fat: 3 },
-  { name: 'Ghee', cal: 900, protein: 0, carbs: 0, fat: 100 },
-  { name: 'Palak paneer', cal: 120, protein: 6, carbs: 5, fat: 9 },
-  { name: 'Aloo gobi', cal: 90, protein: 2, carbs: 11, fat: 4.5 },
-  { name: 'Bhindi masala (okra)', cal: 70, protein: 2, carbs: 7, fat: 4 },
-  { name: 'Baingan bharta', cal: 80, protein: 1.8, carbs: 8, fat: 4.5 },
-  { name: 'Mixed vegetable curry', cal: 75, protein: 2, carbs: 8, fat: 4 },
-  { name: 'Chicken curry', cal: 130, protein: 12, carbs: 3, fat: 8 },
-  { name: 'Butter chicken', cal: 150, protein: 11, carbs: 5, fat: 10 },
-  { name: 'Egg curry', cal: 130, protein: 7, carbs: 3, fat: 10 },
-  { name: 'Fish curry', cal: 110, protein: 11, carbs: 3, fat: 6 },
-  { name: 'Chicken biryani', cal: 180, protein: 8, carbs: 20, fat: 7 },
-  { name: 'Vegetable biryani', cal: 150, protein: 3.5, carbs: 24, fat: 4.5 },
-  { name: 'Samosa', cal: 260, protein: 4, carbs: 30, fat: 14 },
-  { name: 'Vada pav', cal: 290, protein: 5.5, carbs: 38, fat: 13 },
-  { name: 'Pakora, fried', cal: 250, protein: 6, carbs: 22, fat: 15 },
-  { name: 'Coconut chutney', cal: 160, protein: 2.5, carbs: 7, fat: 14 },
-  { name: 'Curd rice', cal: 110, protein: 3.5, carbs: 16, fat: 3.5 },
-  { name: 'Raita', cal: 70, protein: 3, carbs: 5, fat: 4 },
-  { name: 'Chai with milk and sugar', cal: 50, protein: 1.6, carbs: 7, fat: 1.6 },
-  { name: 'Jalebi', cal: 380, protein: 1.5, carbs: 72, fat: 9 },
-  { name: 'Gulab jamun', cal: 350, protein: 5, carbs: 50, fat: 13 },
-  { name: 'Mango', cal: 60, protein: 0.8, carbs: 15, fat: 0.4 },
-  { name: 'Papaya', cal: 43, protein: 0.5, carbs: 11, fat: 0.3 },
-  { name: 'Guava', cal: 68, protein: 2.6, carbs: 14, fat: 1 },
-  { name: 'Peanuts, roasted', cal: 567, protein: 25.8, carbs: 16, fat: 49 },
-  { name: 'Roasted chana', cal: 370, protein: 20, carbs: 57, fat: 6 }
+  { name: 'Roti / chapati', cal: 299, protein: 7.9, carbs: 46.1, fat: 9.2, basis: 'prepared', src: 'USDA FDC 174075 chapati/roti whole wheat commercially prepared, accessed 2026-11-10; homemade without added fat runs leaner' },
+  { name: 'Naan', cal: 311, protein: 11.1, carbs: 50.2, fat: 7.3, basis: 'prepared', src: 'USDA FDC 2707613 Bread naan, accessed 2026-11-10' },
+  { name: 'Paratha', cal: 326, protein: 6.4, carbs: 45.4, fat: 13.2, basis: 'prepared', src: 'USDA FDC 2707715 Bread paratha, accessed 2026-11-10' },
+  { name: 'Basmati rice, cooked', cal: 130, protein: 2.7, carbs: 28.2, fat: 0.3, basis: 'cooked', src: 'recipe: aligned to USDA cooked long-grain white rice values; basmati cooks similarly' },
+  { name: 'Idli', cal: 128, protein: 6.4, carbs: 25, fat: 0.4, basis: 'cooked', src: 'USDA FDC 2708346 Idli, accessed 2026-11-10' },
+  { name: 'Dosa', cal: 168, protein: 4, carbs: 29, fat: 3.7, basis: 'cooked', src: 'recipe: plain fermented rice and urad batter, about 1 tsp oil per dosa' },
+  { name: 'Masala dosa', cal: 184, protein: 5.5, carbs: 30.8, fat: 4.3, basis: 'prepared', src: 'USDA FDC 2709129 Dosa with filling, accessed 2026-11-10' },
+  { name: 'Uttapam', cal: 190, protein: 5, carbs: 30, fat: 6, basis: 'cooked', src: 'recipe: dosa batter with onion and tomato topping, about 1.5 tsp oil per piece' },
+  { name: 'Poha, cooked', cal: 120, protein: 2.2, carbs: 25, fat: 1.8, basis: 'cooked', src: 'recipe: flattened rice cooked 1:1.5 with water, tempered with about 1 tsp oil per 100 g' },
+  { name: 'Upma, cooked', cal: 155, protein: 4, carbs: 24, fat: 5, basis: 'cooked', src: 'recipe: semolina cooked 1:3 with water, vegetables and about 1.5 tsp oil per 100 g' },
+  { name: 'Khichdi, cooked', cal: 130, protein: 4.5, carbs: 21, fat: 3, basis: 'cooked', src: 'recipe: equal parts rice and moong dal cooked soft with about 1 tsp ghee per 100 g' },
+  { name: 'Besan chilla', cal: 180, protein: 9, carbs: 22, fat: 6, basis: 'prepared', src: 'recipe: gram flour batter hydrated about 1:1.2, pan cooked with about 1 tsp oil per 100 g' },
+  { name: 'Dal (lentil curry)', cal: 110, protein: 6.5, carbs: 16, fat: 2, basis: 'prepared', src: 'recipe: toor dal simmered 1:3 with water, tempered with about 1 tsp oil per serving' },
+  { name: 'Rajma (kidney bean curry)', cal: 120, protein: 6.5, carbs: 17, fat: 2.5, basis: 'prepared', src: 'recipe: about 70% cooked kidney beans in tomato-onion gravy with about 1 tsp oil per 100 g' },
+  { name: 'Chole (chickpea curry)', cal: 140, protein: 6.5, carbs: 18, fat: 4.5, basis: 'prepared', src: 'recipe: about 70% cooked chickpeas in tomato-onion gravy with about 1.5 tsp oil per 100 g' },
+  { name: 'Sambar', cal: 80, protein: 3.5, carbs: 11, fat: 2.5, basis: 'prepared', src: 'recipe: thin toor dal and vegetable stew with tamarind, about 30% cooked dal by weight' },
+  { name: 'Rasam', cal: 30, protein: 1.5, carbs: 5, fat: 0.8, basis: 'prepared', src: 'recipe: thin tamarind and dal broth, mostly water' },
+  { name: 'Soya chunks, cooked', cal: 120, protein: 17, carbs: 11, fat: 0.5, basis: 'cooked', src: 'recipe: dry chunks (345 kcal/100 g) rehydrated to about 3x weight in water' },
+  { name: 'Sprouted moong, raw', cal: 30, protein: 3, carbs: 6, fat: 0.2, basis: 'raw', src: 'recipe: aligned to published USDA mung bean sprout raw values' },
+  { name: 'Curd (dahi, plain)', cal: 60, protein: 3.5, carbs: 4.7, fat: 3, basis: 'prepared', src: 'recipe: aligned to USDA plain whole-milk yogurt values; dahi sets similarly' },
+  { name: 'Buttermilk (chaas)', cal: 25, protein: 1.5, carbs: 2.5, fat: 1, basis: 'prepared', src: 'recipe: curd diluted about 1:2 with water and a pinch of salt' },
+  { name: 'Lassi, sweet', cal: 90, protein: 2.5, carbs: 13, fat: 3, basis: 'prepared', src: 'recipe: curd blended with about 8% sugar, undiluted' },
+  { name: 'Ghee', cal: 900, protein: 0, carbs: 0, fat: 100, basis: 'prepared', src: 'recipe: clarified butter, essentially pure milk fat; published values run 876-900 kcal per 100 g' },
+  { name: 'Palak paneer', cal: 120, protein: 6, carbs: 5, fat: 9, basis: 'prepared', src: 'recipe: about 40% paneer in spinach gravy cooked with about 1.5 tsp oil per 100 g' },
+  { name: 'Aloo gobi', cal: 90, protein: 2, carbs: 11, fat: 4.5, basis: 'prepared', src: 'recipe: potato and cauliflower sauteed with about 1.5 tsp oil per 100 g' },
+  { name: 'Bhindi masala (okra)', cal: 70, protein: 2, carbs: 7, fat: 4, basis: 'prepared', src: 'recipe: okra sauteed with onion-tomato masala and about 1.5 tsp oil per 100 g' },
+  { name: 'Baingan bharta', cal: 80, protein: 1.8, carbs: 8, fat: 4.5, basis: 'prepared', src: 'recipe: roasted eggplant mashed into onion-tomato masala with about 1.5 tsp oil per 100 g' },
+  { name: 'Mixed vegetable curry', cal: 75, protein: 2, carbs: 8, fat: 4, basis: 'prepared', src: 'recipe: mixed vegetables simmered in light gravy with about 1.5 tsp oil per 100 g' },
+  { name: 'Chicken curry', cal: 130, protein: 12, carbs: 3, fat: 8, basis: 'prepared', src: 'recipe: about 60% chicken simmered in onion-tomato gravy with about 1.5 tsp oil per 100 g' },
+  { name: 'Butter chicken', cal: 150, protein: 11, carbs: 5, fat: 10, basis: 'prepared', src: 'recipe: chicken in a creamy tomato-makhani gravy with butter and cream' },
+  { name: 'Egg curry', cal: 130, protein: 7, carbs: 3, fat: 10, basis: 'prepared', src: 'recipe: boiled eggs in onion-tomato gravy with about 2 tsp oil per 100 g' },
+  { name: 'Fish curry', cal: 110, protein: 11, carbs: 3, fat: 6, basis: 'prepared', src: 'recipe: about 70% white fish in a thin tamarind or coconut gravy' },
+  { name: 'Chicken biryani', cal: 180, protein: 8, carbs: 20, fat: 7, basis: 'prepared', src: 'recipe: about 2 parts cooked rice to 1 part chicken with ghee or oil layering' },
+  { name: 'Vegetable biryani', cal: 150, protein: 3.5, carbs: 24, fat: 4.5, basis: 'prepared', src: 'recipe: cooked rice layered with mixed vegetables and about 1.5 tsp ghee per 100 g' },
+  { name: 'Samosa', cal: 260, protein: 4, carbs: 30, fat: 14, basis: 'prepared', src: 'recipe: refined-flour shell with spiced potato filling, deep fried' },
+  { name: 'Vada pav', cal: 290, protein: 5.5, carbs: 38, fat: 13, basis: 'prepared', src: 'recipe: fried potato vada in a white-bread pav with chutneys' },
+  { name: 'Pakora, fried', cal: 250, protein: 6, carbs: 22, fat: 15, basis: 'prepared', src: 'recipe: vegetables in gram-flour batter, deep fried; picks up frying oil' },
+  { name: 'Coconut chutney', cal: 160, protein: 2.5, carbs: 7, fat: 14, basis: 'prepared', src: 'recipe: fresh coconut ground with roasted chana dal and minimal water' },
+  { name: 'Curd rice', cal: 110, protein: 3.5, carbs: 16, fat: 3.5, basis: 'prepared', src: 'recipe: about 2 parts cooked rice mixed with 1 part curd, tempered' },
+  { name: 'Raita', cal: 70, protein: 3, carbs: 5, fat: 4, basis: 'prepared', src: 'recipe: curd thinned slightly with vegetables or boondi' },
+  { name: 'Chai with milk and sugar', cal: 50, protein: 1.6, carbs: 7, fat: 1.6, basis: 'prepared', src: 'recipe: half milk half water brewed with tea and about 5 g sugar per 100 g' },
+  { name: 'Jalebi', cal: 380, protein: 1.5, carbs: 72, fat: 9, basis: 'prepared', src: 'recipe: fermented batter deep fried and soaked in sugar syrup' },
+  { name: 'Gulab jamun', cal: 350, protein: 5, carbs: 50, fat: 13, basis: 'prepared', src: 'recipe: khoya or milk-powder balls deep fried and soaked in sugar syrup' },
+  { name: 'Mango', cal: 60, protein: 0.8, carbs: 15, fat: 0.4, basis: 'raw', src: 'recipe: aligned to published USDA raw mango values' },
+  { name: 'Papaya', cal: 43, protein: 0.5, carbs: 11, fat: 0.3, basis: 'raw', src: 'recipe: aligned to published USDA raw papaya values' },
+  { name: 'Guava', cal: 68, protein: 2.6, carbs: 14, fat: 1, basis: 'raw', src: 'recipe: aligned to published USDA raw common guava values' },
+  { name: 'Peanuts, roasted', cal: 587, protein: 24.4, carbs: 21.5, fat: 49.7, basis: 'prepared', src: 'recipe: aligned to published USDA dry-roasted peanut values, no salt' },
+  { name: 'Roasted chana', cal: 370, protein: 20, carbs: 57, fat: 6, basis: 'prepared', src: 'recipe: dry-roasted Bengal gram, no added oil' }
 ];
 
 // Case-insensitive substring filter over the built-in and custom food lists.
@@ -3796,6 +3798,7 @@ function renderNutritionist() {
           <button class="btn btn-primary btn-sm" type="submit">Add to diary</button>
           <span class="tiny muted" style="align-self:center">Tip: 100 g is about a small palm of cooked protein.</span>
         </div>
+        <p class="tiny muted" style="margin-top:10px">Database values are approximate per 100 g and shift with recipes, preparation and brands. For packaged food, add the label under + Custom food for exact numbers.</p>
       </form>
     </div>
 

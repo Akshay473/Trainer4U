@@ -10,7 +10,7 @@ Versions through commit c5b049e927cbf6f9edf84ab3bfba4a3482fd9e5c remain MIT-lice
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="description" content="Trainer4U — a private, local-only fitness coaching app for workouts, nutrition, recipes, wellness and progress.">
 <meta name="color-scheme" content="light dark">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-lxHtVGUW0SVdXaZ3aWGaXgWDGnCSviTHmklPy/Om5Es='; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-SY0VR0k1TOqHPngQRWEo3MoYoDUsvJQP9duSZc3dSrM='; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'">
 <meta name="theme-color" content="#0F172A">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="#0F172A">
@@ -755,6 +755,11 @@ function toggleTheme() {
 /* ---------------------------------------------------------------------------
    Built-in food database (values per 100 g)
    --------------------------------------------------------------------------- */
+// <logic:start>
+// App build version. A test keeps this in sync with the service worker cache name.
+const APP_VERSION = '2026.11.10';
+// <logic:end>
+
 // <logic:start>
 // Approximate per-100 g nutrition. Entries with src were verified 2026-11-10 against the named
 // USDA FoodData Central record (FDC id) or carry an explicit recipe assumption; basis records
@@ -1884,6 +1889,7 @@ function renderAuth() {
           </form>
 
           <p class="tiny muted" style="margin-top:14px">Passwords are salted and hashed. Data is stored only in this browser. Trainer4U is a wellness tool, not medical care.</p>
+          <p class="tiny muted" style="margin-top:6px">Build ${APP_VERSION}</p>
         </section>
       </div>
     </div>`;
@@ -1930,7 +1936,7 @@ function renderApp() {
         </button>`).join('')}
     </nav>
     <main class="main">${content}</main>
-    <footer class="foot">Private to this browser · Your profile and logs never leave your device · Not medical advice</footer>`;
+    <footer class="foot">Private to this browser · Your profile and logs never leave your device · Not medical advice · Build ${APP_VERSION}</footer>`;
 
   if (state.tab === 'progress') requestAnimationFrame(() => drawCharts());
 }
@@ -3810,7 +3816,7 @@ function renderNutritionist() {
         return `<div class="meal-title">${meal}</div>${entries.map(entry => `
           <div class="food-row">
             <div>
-              <div class="food-name">${esc(entry.name)} <span class="tiny muted">${entry.portion ? `${esc(entry.portion)} · ` : ''}${entry.grams} g</span></div>
+              <div class="food-name">${esc(entry.name)} <span class="tiny muted">${[entry.portion ? esc(entry.portion) : '', entry.grams ? `${entry.grams} g` : ''].filter(Boolean).join(' · ')}</span></div>
               <div class="food-macros">${entry.calories} kcal · P ${entry.protein}g · C ${entry.carbs}g · F ${entry.fat}g</div>
             </div>
             <button class="btn btn-xs btn-ghost" data-action="delete-food" data-id="${esc(entry.id)}" aria-label="Delete entry">✕</button>
@@ -3823,7 +3829,10 @@ function renderNutritionist() {
       ${(u.customFoods || []).length ? u.customFoods.map(food => `
         <div class="food-row">
           <div><div class="food-name">${esc(food.name)}</div><div class="food-macros">${esc(food.servingLabel)} · ${food.servingGrams} g · ${food.calories} kcal · P ${food.protein}g · C ${food.carbs}g · F ${food.fat}g</div></div>
-          <button class="btn btn-xs btn-ghost" data-action="delete-custom-food" data-id="${esc(food.id)}" aria-label="Delete custom food ${esc(food.name)}">✕</button>
+          <div style="display:flex;gap:4px">
+            <button class="btn btn-xs btn-ghost" data-action="edit-custom-food" data-id="${esc(food.id)}" aria-label="Edit custom food ${esc(food.name)}">Edit</button>
+            <button class="btn btn-xs btn-ghost" data-action="delete-custom-food" data-id="${esc(food.id)}" aria-label="Delete custom food ${esc(food.name)}">✕</button>
+          </div>
         </div>`).join('') : '<div class="empty">No custom foods yet. Add a homemade dish or packaged food with its serving size.</div>'}
     </div>
 
@@ -4503,28 +4512,32 @@ function renderModal() {
 }
 
 function customFoodModalMarkup() {
+  const editing = state.modal && state.modal.editId
+    ? (state.user.customFoods || []).find(item => item.id === state.modal.editId)
+    : null;
+  const field = key => editing ? ` value="${esc(String(editing[key]))}"` : '';
   return `
     <div class="modal-overlay" data-action="close-modal">
-      <div class="modal" role="dialog" aria-modal="true" aria-label="Add custom food">
+      <div class="modal" role="dialog" aria-modal="true" aria-label="${editing ? 'Edit' : 'Add'} custom food">
         <div class="modal-head">
           <div>
-            <h2>Add a custom food</h2>
-            <p class="small muted">Enter the nutrition shown for one serving you actually use. It stays private in this browser.</p>
+            <h2>${editing ? 'Edit custom food' : 'Add a custom food'}</h2>
+            <p class="small muted">${editing ? 'Update the serving or nutrition for this food. Diary entries you already logged keep their original numbers.' : 'Enter the nutrition shown for one serving you actually use. It stays private in this browser.'}</p>
           </div>
           <button class="icon-btn close" data-action="close-modal" aria-label="Close custom food">✕</button>
         </div>
         <form data-form="custom-food">
           <div class="form-grid">
-            <div class="field span-2"><label for="custom-name">Food name</label><input id="custom-name" name="name" maxlength="120" required placeholder="e.g. Homemade dal"></div>
-            <div class="field"><label for="custom-serving-label">Serving name</label><input id="custom-serving-label" name="servingLabel" maxlength="40" required placeholder="e.g. 1 bowl"></div>
-            <div class="field"><label for="custom-serving-grams">Serving weight (grams)</label><input id="custom-serving-grams" name="servingGrams" type="number" min="1" max="2000" step="0.1" required placeholder="e.g. 250"></div>
-            <div class="field"><label for="custom-calories">Calories per serving (kcal)</label><input id="custom-calories" name="calories" type="number" min="0" max="5000" step="1" required></div>
-            <div class="field"><label for="custom-protein">Protein per serving (g)</label><input id="custom-protein" name="protein" type="number" min="0" max="1000" step="0.1" required></div>
-            <div class="field"><label for="custom-carbs">Carbs per serving (g)</label><input id="custom-carbs" name="carbs" type="number" min="0" max="1000" step="0.1" required></div>
-            <div class="field"><label for="custom-fat">Fat per serving (g)</label><input id="custom-fat" name="fat" type="number" min="0" max="1000" step="0.1" required></div>
+            <div class="field span-2"><label for="custom-name">Food name</label><input id="custom-name" name="name" maxlength="120" required placeholder="e.g. Homemade dal"${field('name')}></div>
+            <div class="field"><label for="custom-serving-label">Serving name</label><input id="custom-serving-label" name="servingLabel" maxlength="40" required placeholder="e.g. 1 bowl"${field('servingLabel')}></div>
+            <div class="field"><label for="custom-serving-grams">Serving weight (grams)</label><input id="custom-serving-grams" name="servingGrams" type="number" min="1" max="2000" step="0.1" required placeholder="e.g. 250"${field('servingGrams')}></div>
+            <div class="field"><label for="custom-calories">Calories per serving (kcal)</label><input id="custom-calories" name="calories" type="number" min="0" max="5000" step="1" required${field('calories')}></div>
+            <div class="field"><label for="custom-protein">Protein per serving (g)</label><input id="custom-protein" name="protein" type="number" min="0" max="1000" step="0.1" required${field('protein')}></div>
+            <div class="field"><label for="custom-carbs">Carbs per serving (g)</label><input id="custom-carbs" name="carbs" type="number" min="0" max="1000" step="0.1" required${field('carbs')}></div>
+            <div class="field"><label for="custom-fat">Fat per serving (g)</label><input id="custom-fat" name="fat" type="number" min="0" max="1000" step="0.1" required${field('fat')}></div>
           </div>
           <p class="tiny muted" style="margin-top:10px">Use the package label or your own recipe calculation. You can later log this food by its serving, grams, 100 g portions or ounces.</p>
-          <div class="btn-row" style="margin-top:14px"><button class="btn btn-primary" type="submit">Save custom food</button><button class="btn btn-ghost" type="button" data-action="close-modal">Cancel</button></div>
+          <div class="btn-row" style="margin-top:14px"><button class="btn btn-primary" type="submit">${editing ? 'Save changes' : 'Save custom food'}</button><button class="btn btn-ghost" type="button" data-action="close-modal">Cancel</button></div>
         </form>
       </div>
     </div>`;
@@ -4654,6 +4667,8 @@ function recipeModalMarkup() {
   const stepIndex = clamp(state.modal.step || 0, 0, recipe.steps.length - 1);
   const isLast = stepIndex === recipe.steps.length - 1;
   const progress = ((stepIndex + 1) / recipe.steps.length) * 100;
+  const hour = new Date().getHours();
+  const defaultMeal = hour < 11 ? 'Breakfast' : hour < 16 ? 'Lunch' : hour < 21 ? 'Dinner' : 'Snack';
 
   return `
     <div class="modal-overlay" data-action="close-modal">
@@ -4684,6 +4699,14 @@ function recipeModalMarkup() {
             : '<button class="btn btn-primary btn-sm" data-action="recipe-nav" data-dir="1">Next step →</button>'}
           <button class="btn btn-ghost btn-sm" data-action="close-modal">Close</button>
         </div>
+        <div class="section-label" style="margin-top:16px">Log this meal</div>
+        <div class="btn-row" style="align-items:center">
+          <select id="recipe-log-meal" aria-label="Meal for this diary entry" style="flex:1">
+            ${['Breakfast', 'Lunch', 'Dinner', 'Snack'].map(meal => `<option${meal === defaultMeal ? ' selected' : ''}>${meal}</option>`).join('')}
+          </select>
+          <button class="btn btn-secondary btn-sm" data-action="log-recipe">Log to diary</button>
+        </div>
+        <p class="tiny muted" style="margin-top:8px">Adds one serving (${recipe.cal} kcal) to today's diary.</p>
         <p class="tiny muted" style="margin-top:14px">Check labels for your allergens before cooking. Recipe nutrition is an estimate per serving.</p>
       </div>
     </div>`;
@@ -5166,6 +5189,30 @@ document.addEventListener('click', event => {
       if (u) openModal({ type: 'custom-food' });
       break;
 
+    case 'edit-custom-food': {
+      if (!u) break;
+      const food = (u.customFoods || []).find(item => item.id === trigger.dataset.id);
+      if (food) openModal({ type: 'custom-food', editId: food.id });
+      break;
+    }
+
+    case 'log-recipe': {
+      if (!u) break;
+      const recipe = RECIPES[state.modal && state.modal.index];
+      if (!recipe) break;
+      const mealSelect = document.getElementById('recipe-log-meal');
+      const meal = ['Breakfast', 'Lunch', 'Dinner', 'Snack'].includes(mealSelect && mealSelect.value) ? mealSelect.value : 'Snack';
+      u.logs.food.push({
+        id: uid(), date: today(), meal, name: recipe.name, grams: null,
+        calories: recipe.cal, protein: recipe.p, carbs: recipe.c, fat: recipe.f, portion: '1 serving'
+      });
+      saveUser();
+      closeModal();
+      renderApp();
+      toast(`${recipe.name} logged to ${meal.toLowerCase()}.`);
+      break;
+    }
+
     case 'close-modal':
       // Ignore clicks inside the sheet itself.
       if (trigger.classList.contains('modal-overlay') && event.target !== trigger) break;
@@ -5337,7 +5384,6 @@ document.addEventListener('submit', async event => {
     if (!u) return;
 
     if (type === 'custom-food') {
-      if ((u.customFoods || []).length >= 500) { toast('My foods is full. Remove a custom food before adding another.'); return; }
       const validation = validateCustomFood({
         name: formData.get('name'),
         servingLabel: formData.get('servingLabel'),
@@ -5349,6 +5395,17 @@ document.addEventListener('submit', async event => {
       });
       if (validation.errors.length) { toast(validation.errors[0][1]); return; }
       u.customFoods = u.customFoods || [];
+      const editId = state.modal && state.modal.editId;
+      const existing = editId ? u.customFoods.find(item => item.id === editId) : null;
+      if (existing) {
+        Object.assign(existing, validation.values);
+        saveUser();
+        closeModal();
+        renderApp();
+        toast(`${existing.name} updated. Entries already logged keep their original numbers.`);
+        return;
+      }
+      if (u.customFoods.length >= 500) { toast('My foods is full. Remove a custom food before adding another.'); return; }
       u.customFoods.push({ id: uid(), ...validation.values });
       saveUser();
       closeModal();
@@ -5590,8 +5647,19 @@ init();
 // Register service worker only on http/https (not file://)
 if ('serviceWorker' in navigator && window.location.protocol !== 'file:') {
   window.addEventListener('load', () => {
+    // Pages already controlled by an older worker reload once when a new one takes
+    // over, so deployed fixes show up without a manual hard refresh. First-ever
+    // installs have no controller and must not reload.
+    const hadController = Boolean(navigator.serviceWorker.controller);
+    let reloading = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (!hadController || reloading) return;
+      reloading = true;
+      window.location.reload();
+    });
     navigator.serviceWorker.register('./sw.js')
       .then(registration => {
+        registration.update();
         console.log('SW registered: scope', registration.scope);
       })
       .catch(registrationError => {

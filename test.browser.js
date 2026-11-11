@@ -1,4 +1,4 @@
-/* global state, saveUser, renderApp */
+/* global state, saveUser, renderApp, RECIPES */
 'use strict';
 const http = require('http');
 const fs = require('fs');
@@ -261,8 +261,41 @@ let browser;
   check('filter shows an empty-state option', (await page.locator('#food-name option').textContent()).includes('No matches'));
   await page.fill('#food-filter', '');
   check('clearing the filter restores the full list', (await page.locator('#food-name option').count()) > 40);
+  await page.click('[data-action="edit-custom-food"]');
+  await page.waitForSelector('form[data-form="custom-food"]');
+  check('edit custom food modal prefills the saved values', await page.evaluate(() =>
+    document.querySelector('form[data-form="custom-food"] button[type="submit"]').textContent === 'Save changes' &&
+    document.getElementById('custom-name').value === 'Homemade dal' &&
+    document.getElementById('custom-serving-grams').value === '250'
+  ));
+  await page.fill('#custom-calories', '300');
+  await page.click('form[data-form="custom-food"] button[type="submit"]');
+  await page.waitForSelector('form[data-form="custom-food"]', { state: 'detached' });
+  check('editing keeps the same custom food id', await page.evaluate(() => {
+    const saved = state.user.customFoods;
+    return saved.length === 1 && saved[0].calories === 300 && saved[0].name === 'Homemade dal';
+  }));
+  check('editing a custom food does not rewrite diary history', await page.evaluate(() =>
+    state.user.logs.food.filter(item => item.name === 'Homemade dal').every(item => item.calories === 420)
+  ));
   await axe(page, 'Nutritionist with custom foods');
   await page.screenshot({ path: path.join(screenshots, 'trainer4u-custom-foods-desktop.png'), fullPage: true });
+  await tab(page, 'chef');
+  await page.click('[data-action="recipe-open"]');
+  await page.waitForSelector('[data-action="log-recipe"]');
+  const loggedRecipeName = await page.evaluate(() => RECIPES[state.modal.index].name);
+  await page.selectOption('#recipe-log-meal', 'Dinner');
+  await page.click('[data-action="log-recipe"]');
+  await page.waitForSelector('.modal-overlay', { state: 'detached' });
+  check('recipe logs to the diary as one serving', await page.evaluate(() => {
+    const entry = state.user.logs.food.find(item => item.portion === '1 serving');
+    return !!entry && entry.meal === 'Dinner' && !entry.grams && entry.calories > 0;
+  }));
+  await tab(page, 'nutritionist');
+  check('diary shows a recipe entry without a grams label', await page.evaluate(name => {
+    const row = [...document.querySelectorAll('.food-row')].find(el => el.textContent.includes(name));
+    return !!row && row.querySelector('.tiny').textContent.trim() === '1 serving';
+  }, loggedRecipeName));
   await tab(page, 'doctor');
   await axe(page, 'Health check');
   await tab(page, 'progress');

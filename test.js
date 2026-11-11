@@ -45,7 +45,7 @@ const memoryStorage = (() => {
   return { getItem: key => values.has(key) ? values.get(key) : null, setItem: (key, value) => values.set(key, String(value)) };
 })();
 const factory = new Function('ACTIVITY_MULTIPLIERS', 'GOAL_LABELS', 'today', 'dateOffset', 'localStorage', 'DB_KEY', 'SCHEMA_VERSION', 'uid',
-  code + '\nreturn { clamp, round, safeNum, sortedWeights, currentWeight, weightProgress, workoutsLast7, sleepAverage, loggedDays, bmiFor, bmiCategory, weightTrendPerWeek, weightTrendCategory, calorieDrift, proteinGap, sleepDeficit, macroTargets, baseTargets, getInsights, validateOnboarding, validateCustomFood, gramsForPortion, foodEntryFromFood, validateImportData, recipeMatchScore, weekStart, loadDB, esc, escapeHTML, FOOD_DB, filterFoodItems };\n');
+  code + '\nreturn { clamp, round, safeNum, sortedWeights, currentWeight, weightProgress, workoutsLast7, sleepAverage, loggedDays, bmiFor, bmiCategory, weightTrendPerWeek, weightTrendCategory, calorieDrift, proteinGap, sleepDeficit, macroTargets, baseTargets, getInsights, validateOnboarding, validateCustomFood, gramsForPortion, foodEntryFromFood, validateImportData, recipeMatchScore, weekStart, loadDB, esc, escapeHTML, FOOD_DB, filterFoodItems, APP_VERSION };\n');
 const L = factory(ACTIVITY_MULTIPLIERS, GOAL_LABELS, todayMock, dateOffsetMock, memoryStorage, 'trainer4u_db_v2', 2, () => 'test-food-id');
 
 function mkUser(over = {}) {
@@ -295,8 +295,12 @@ check('invalid settings rejected', badSettingsRejected);
 const inlineScript = /<script>([\s\S]*?)<\/script>/.exec(html)[1];
 const scriptHash = crypto.createHash('sha256').update(inlineScript).digest('base64');
 check('CSP hash matches the actual inline script', html.includes(`'sha256-${scriptHash}'`));
-check('non-cryptographic password fallback removed', !html.includes('fallbackHash'));
 const serviceWorker = fs.readFileSync(path.join(__dirname, 'sw.js'), 'utf8');
+check('service worker cache tracks the app build version', serviceWorker.includes(`v${L.APP_VERSION}`));
+check('page forces a service worker update check on load', html.includes('registration.update()'));
+check('page reloads once when a new worker takes over', html.includes('controllerchange'));
+check('app shows the build version', html.includes('Build ${APP_VERSION}'));
+check('non-cryptographic password fallback removed', !html.includes('fallbackHash'));
 check('service worker limits cache deletion to its own prefix', serviceWorker.includes('name.startsWith(CACHE_PREFIX) && name !== CACHE_NAME'));
 check('service worker restricts requests to its own scope', serviceWorker.includes('url.pathname.startsWith(APP_SCOPE.pathname)'));
 const proprietaryLicense = fs.readFileSync(path.join(__dirname, 'LICENSE'), 'utf8');

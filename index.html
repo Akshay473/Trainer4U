@@ -10,7 +10,7 @@ Versions through commit c5b049e927cbf6f9edf84ab3bfba4a3482fd9e5c remain MIT-lice
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="description" content="Trainer4U — a private, local-only fitness coaching app for workouts, nutrition, recipes, wellness and progress.">
 <meta name="color-scheme" content="light dark">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-CjGrvWj6RWWdzEURVQ1w8oW5h7fEyXzXswdIBG+LI+k='; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-2jGTsYnuZNrakWIRzSJb6WcCv2jzYIKof2cU/I+NQC4='; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'">
 <meta name="theme-color" content="#0F172A">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="#0F172A">
@@ -759,7 +759,7 @@ function toggleTheme() {
    --------------------------------------------------------------------------- */
 // <logic:start>
 // App build version. A test keeps this in sync with the service worker cache name.
-const APP_VERSION = '2026.11.12.2';
+const APP_VERSION = '2026.11.12.3';
 // <logic:end>
 
 // <logic:start>
@@ -1169,6 +1169,39 @@ async function hashPassword(password, salt) {
   const bytes = new TextEncoder().encode(`${salt}:${password}`);
   const digest = await window.crypto.subtle.digest('SHA-256', bytes);
   return Array.from(new Uint8Array(digest)).map(byte => byte.toString(16).padStart(2, '0')).join('');
+}
+
+// Encrypted backups: PBKDF2 (250k rounds, SHA-256) + AES-256-GCM.
+// The password never leaves the browser and is never stored.
+const BACKUP_KDF_ITERATIONS = 250000;
+function bytesToHex(bytes) { return Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join(''); }
+function hexToBytes(hex) { return new Uint8Array(String(hex).match(/.{2}/g).map(pair => parseInt(pair, 16))); }
+async function backupKeyFromPassword(password, saltHex) {
+  if (!window.crypto || !window.crypto.subtle) {
+    throw new Error('Encrypted backups require HTTPS or localhost.');
+  }
+  const baseKey = await window.crypto.subtle.importKey('raw', new TextEncoder().encode(password), 'PBKDF2', false, ['deriveKey']);
+  return window.crypto.subtle.deriveKey(
+    { name: 'PBKDF2', hash: 'SHA-256', salt: hexToBytes(saltHex), iterations: BACKUP_KDF_ITERATIONS },
+    baseKey, { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']
+  );
+}
+async function encryptBackupText(plaintext, password) {
+  const salt = randomSalt();
+  const iv = bytesToHex(window.crypto.getRandomValues(new Uint8Array(12)));
+  const key = await backupKeyFromPassword(password, salt);
+  const cipherBuffer = await window.crypto.subtle.encrypt({ name: 'AES-GCM', iv: hexToBytes(iv) }, key, new TextEncoder().encode(plaintext));
+  return {
+    app: 'Trainer4U', encrypted: true, version: 1,
+    kdf: { name: 'PBKDF2', hash: 'SHA-256', iterations: BACKUP_KDF_ITERATIONS, salt },
+    cipher: { name: 'AES-GCM', iv },
+    data: bytesToHex(new Uint8Array(cipherBuffer))
+  };
+}
+async function decryptBackupEnvelope(envelope, password) {
+  const key = await backupKeyFromPassword(password, envelope.kdf.salt);
+  const plainBuffer = await window.crypto.subtle.decrypt({ name: 'AES-GCM', iv: hexToBytes(envelope.cipher.iv) }, key, hexToBytes(envelope.data));
+  return new TextDecoder().decode(plainBuffer);
 }
 
 // <logic:start>
@@ -4606,8 +4639,34 @@ function renderModal() {
   else if (state.modal.type === 'workout') root.innerHTML = workoutModalMarkup();
   else if (state.modal.type === 'recipe') root.innerHTML = recipeModalMarkup();
   else if (state.modal.type === 'custom-food') root.innerHTML = customFoodModalMarkup();
+  else if (state.modal.type === 'backup-password') root.innerHTML = backupPasswordModalMarkup();
   const focusable = modalFocusable();
   if (focusable.length) focusable[0].focus();
+}
+
+function backupPasswordModalMarkup() {
+  const importing = state.modal && state.modal.mode === 'import';
+  return `
+    <div class="modal-overlay" data-action="close-modal">
+      <div class="modal" role="dialog" aria-modal="true" aria-label="${importing ? 'Unlock encrypted backup' : 'Encrypt your export'}">
+        <div class="modal-head">
+          <div>
+            <h2>${importing ? 'Unlock encrypted backup' : 'Encrypt your export'}</h2>
+            <p class="small muted">${importing ? 'This backup is protected. Enter the backup password chosen when it was created.' : 'Choose a backup password. The file is encrypted in this browser with AES-256 before it downloads.'}</p>
+          </div>
+          <button class="icon-btn close" data-action="close-modal" aria-label="Close backup password">✕</button>
+        </div>
+        <form data-form="backup-password">
+          ${state.modal.error ? `<p class="field-error" role="alert">${esc(state.modal.error)}</p>` : ''}
+          <div class="form-grid">
+            <div class="field span-2"><label for="backup-password">Backup password</label><input id="backup-password" type="password" name="password" minlength="8" maxlength="200" required autocomplete="off" placeholder="At least 8 characters"></div>
+            ${importing ? '' : '<div class="field span-2"><label for="backup-password-confirm">Repeat the password</label><input id="backup-password-confirm" type="password" name="confirm" minlength="8" maxlength="200" required autocomplete="off"></div>'}
+          </div>
+          <p class="tiny muted" style="margin-top:10px">${importing ? 'The password is only used to decrypt the file in this browser. It is never stored.' : 'If you forget this password the backup cannot be recovered - there is no reset. It is never stored or sent anywhere.'}</p>
+          <div class="btn-row" style="margin-top:14px"><button class="btn btn-primary" type="submit">${importing ? 'Unlock and import' : 'Encrypt and download'}</button><button class="btn btn-ghost" type="button" data-action="close-modal">Cancel</button></div>
+        </form>
+      </div>
+    </div>`;
 }
 
 function customFoodModalMarkup() {
@@ -4675,6 +4734,10 @@ function settingsModalMarkup() {
         <div class="setting-row">
           <div><b>Export progress</b><p>Download profile, workouts, food, measurements and wellness notes as JSON.</p></div>
           <button class="btn btn-sm" data-action="export-data">Export</button>
+        </div>
+        <div class="setting-row">
+          <div><b>Encrypted export</b><p>Same data, protected with a backup password you choose (AES-256). Use this before storing the file anywhere shared.</p></div>
+          <button class="btn btn-sm" data-action="export-encrypted">Encrypted</button>
         </div>
         <div class="setting-row">
           <div><b>Import progress</b><p>Restore a previous JSON export. This replaces your current logs.</p></div>
@@ -5036,9 +5099,8 @@ function handleOnboarding(form, formData) {
 /* ---------------------------------------------------------------------------
    8) DATA ACTIONS
    --------------------------------------------------------------------------- */
-function exportData() {
-  if (!state.user) return;
-  const payload = {
+function exportPayload() {
+  return {
     app: 'Trainer4U',
     version: 1,
     exportedAt: new Date().toISOString(),
@@ -5048,9 +5110,38 @@ function exportData() {
     customFoods: state.user.customFoods || [],
     settings: state.user.settings
   };
-  download(`trainer4u-${state.user.username}-${today()}.json`, JSON.stringify(payload, null, 2));
+}
+
+function exportData() {
+  if (!state.user) return;
+  download(`trainer4u-${state.user.username}-${today()}.json`, JSON.stringify(exportPayload(), null, 2));
   toast('Progress exported as JSON.');
 }
+
+// <logic:start>
+// Encrypted-export envelopes: shape checks that run before any decryption.
+function isEncryptedExport(data) {
+  return !!(data && typeof data === 'object' && !Array.isArray(data) && data.encrypted === true);
+}
+function validateEncryptedEnvelope(data) {
+  if (!isEncryptedExport(data)) throw new Error('Not an encrypted Trainer4U backup.');
+  const hex = (value, length, label) => {
+    if (typeof value !== 'string' || !new RegExp(`^[0-9a-f]{${length}}$`).test(value)) throw new Error(`This backup file looks damaged (${label}).`);
+    return value;
+  };
+  const kdf = data.kdf;
+  if (!kdf || kdf.name !== 'PBKDF2' || kdf.hash !== 'SHA-256') throw new Error('This backup uses an unsupported key derivation setup.');
+  if (!Number.isInteger(kdf.iterations) || kdf.iterations < 10000 || kdf.iterations > 2000000) throw new Error('This backup uses an unsupported key derivation setup.');
+  hex(kdf.salt, 32, 'salt');
+  const cipher = data.cipher;
+  if (!cipher || cipher.name !== 'AES-GCM') throw new Error('This backup uses an unsupported cipher.');
+  hex(cipher.iv, 24, 'iv');
+  if (typeof data.data !== 'string' || data.data.length === 0 || data.data.length % 2 !== 0 || !/^[0-9a-f]+$/.test(data.data) || data.data.length > 20 * 1024 * 1024) {
+    throw new Error('This backup file looks damaged (ciphertext).');
+  }
+  return { salt: kdf.salt, iv: cipher.iv, data: data.data };
+}
+// <logic:end>
 
 // <logic:start>
 function validateImportData(data) {
@@ -5202,23 +5293,34 @@ function validateImportData(data) {
 
 async function importData(file) {
   try {
-    if (!file || file.size > 5 * 1024 * 1024) throw new Error('Choose a Trainer4U JSON export smaller than 5 MB.');
+    if (!file || file.size > 5 * 1024 * 1024) throw new Error('Choose a Trainer4U export smaller than 5 MB.');
     const text = await file.text();
-    const cleaned = validateImportData(JSON.parse(text));
-    if (!confirm('Replace your current logs with the imported data? Your account and username stay the same.')) return;
-    state.user.profile = { ...state.user.profile, ...cleaned.profile };
-    state.user.logs = cleaned.logs;
-    state.user.customFoods = cleaned.customFoods;
-    state.user.settings = { ...state.user.settings, ...cleaned.settings };
-    state.user.onboarded = true;
-    saveUser();
-    closeModal();
-    applyTheme();
-    renderApp();
-    toast('Progress imported successfully.');
+    const parsed = JSON.parse(text);
+    if (isEncryptedExport(parsed)) {
+      validateEncryptedEnvelope(parsed);
+      state.pendingEncryptedImport = parsed;
+      openModal({ type: 'backup-password', mode: 'import' });
+      return;
+    }
+    await finishImport(parsed);
   } catch (err) {
     toast(`Import failed: ${err.message}`);
   }
+}
+
+async function finishImport(parsed) {
+  const cleaned = validateImportData(parsed);
+  if (!confirm('Replace your current logs with the imported data? Your account and username stay the same.')) return;
+  state.user.profile = { ...state.user.profile, ...cleaned.profile };
+  state.user.logs = cleaned.logs;
+  state.user.customFoods = cleaned.customFoods;
+  state.user.settings = { ...state.user.settings, ...cleaned.settings };
+  state.user.onboarded = true;
+  saveUser();
+  closeModal();
+  applyTheme();
+  renderApp();
+  toast('Progress imported successfully.');
 }
 
 function resetProgress() {
@@ -5467,6 +5569,10 @@ document.addEventListener('click', event => {
       exportData();
       break;
 
+    case 'export-encrypted':
+      if (u) openModal({ type: 'backup-password', mode: 'export' });
+      break;
+
     case 'reset-progress':
       resetProgress();
       break;
@@ -5508,6 +5614,37 @@ document.addEventListener('submit', async event => {
       return;
     }
     if (!u) return;
+
+    if (type === 'backup-password') {
+      const mode = state.modal && state.modal.mode;
+      const password = String(formData.get('password') || '');
+      if (mode === 'export') {
+        const confirmPassword = String(formData.get('confirm') || '');
+        if (password.length < 8) { state.modal.error = 'Choose at least 8 characters.'; renderModal(); return; }
+        if (password !== confirmPassword) { state.modal.error = 'The two passwords do not match.'; renderModal(); return; }
+        try {
+          const envelope = await encryptBackupText(JSON.stringify(exportPayload(), null, 2), password);
+          download(`trainer4u-${u.username}-${today()}.encrypted.json`, JSON.stringify(envelope, null, 2));
+          closeModal();
+          toast('Encrypted backup downloaded.');
+        } catch (err) {
+          state.modal.error = err.message;
+          renderModal();
+        }
+        return;
+      }
+      const envelope = state.pendingEncryptedImport;
+      if (!envelope) { closeModal(); return; }
+      try {
+        const text = await decryptBackupEnvelope(envelope, password);
+        state.pendingEncryptedImport = null;
+        await finishImport(JSON.parse(text));
+      } catch (err) {
+        state.modal = { type: 'backup-password', mode: 'import', error: 'That backup password did not work, or the file is damaged.' };
+        renderModal();
+      }
+      return;
+    }
 
     if (type === 'custom-food') {
       const validation = validateCustomFood({

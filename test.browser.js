@@ -296,6 +296,43 @@ let browser;
     const row = [...document.querySelectorAll('.food-row')].find(el => el.textContent.includes(name));
     return !!row && row.querySelector('.tiny').textContent.trim() === '1 serving';
   }, loggedRecipeName));
+
+  await tab(page, 'progress');
+  check('weight form defaults to metric', (await page.locator('label[for="weight-kg"]').textContent()).includes('kg'));
+  await page.click('[data-action="open-settings"]');
+  await page.waitForSelector('[data-action="toggle-units"]');
+  await page.click('[data-action="toggle-units"]');
+  await page.waitForSelector('[data-action="toggle-units"]:has-text("Imperial")');
+  await page.click('[role="dialog"] .modal-head [data-action="close-modal"]');
+  await page.waitForSelector('[role="dialog"]', { state: 'detached' });
+  check('units setting switched to imperial', await page.evaluate(() => state.user.settings.units === 'imperial'));
+  check('weight form switches to pounds', (await page.locator('label[for="weight-kg"]').textContent()).includes('lb'));
+  await page.fill('#weight-kg', '176.4');
+  await page.click('form[data-form="add-weight"] button[type="submit"]');
+  check('imperial weigh-in stores kilograms', await page.evaluate(() => {
+    const entry = state.user.logs.weights[state.user.logs.weights.length - 1];
+    return entry && Math.abs(entry.kg - 80) < 0.15;
+  }));
+  check('recent weights table shows pounds', await page.evaluate(() =>
+    [...document.querySelectorAll('.table-wrap')].some(el => el.textContent.includes('176.4 lb'))
+  ));
+  await tab(page, 'dashboard');
+  check('dashboard shows imperial current weight', await page.evaluate(() => {
+    const stat = [...document.querySelectorAll('.stat')].find(el => el.textContent.includes('Current weight'));
+    return !!stat && stat.textContent.includes('lb');
+  }));
+  await page.click('[data-action="open-settings"]');
+  await page.waitForSelector('[data-action="toggle-units"]');
+  await page.click('[data-action="toggle-units"]');
+  await page.waitForSelector('[data-action="toggle-units"]:has-text("Metric")');
+  await page.click('[role="dialog"] .modal-head [data-action="close-modal"]');
+  await page.waitForSelector('[role="dialog"]', { state: 'detached' });
+  check('units switch back to metric', await page.evaluate(() => state.user.settings.units === 'metric'));
+  await tab(page, 'progress');
+  check('recent weights table shows kilograms again', await page.evaluate(() =>
+    [...document.querySelectorAll('.table-wrap')].some(el => el.textContent.includes('80 kg'))
+  ));
+  await axe(page, 'Progress after units round-trip');
   await tab(page, 'doctor');
   await axe(page, 'Health check');
   await tab(page, 'progress');

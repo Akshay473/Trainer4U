@@ -10,7 +10,7 @@ Versions through commit c5b049e927cbf6f9edf84ab3bfba4a3482fd9e5c remain MIT-lice
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="description" content="Trainer4U — a private, local-only fitness coaching app for workouts, nutrition, recipes, wellness and progress.">
 <meta name="color-scheme" content="light dark">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-Hl53MlK66FLaE/KffJ+1S3hmgiFxKCX5OHJlGmNDNwQ='; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-CjGrvWj6RWWdzEURVQ1w8oW5h7fEyXzXswdIBG+LI+k='; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'">
 <meta name="theme-color" content="#0F172A">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="#0F172A">
@@ -351,6 +351,8 @@ select { appearance: none; background-image: linear-gradient(45deg, transparent 
 .day-weekday { font-size: .7rem; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; color: var(--accent-ink); }
 .day-name { font-size: 1.02rem; font-weight: 800; letter-spacing: -.02em; }
 .recovery-tip { color: var(--muted); font-size: .8rem; }
+.why-list { margin: 8px 0 0; padding-left: 18px; color: var(--muted); font-size: .85rem; line-height: 1.5; }
+.why-list li { margin: 6px 0; }
 .exercise-list { display: grid; gap: 8px; }
 .exercise { border: 1px solid var(--line); border-radius: 12px; padding: 9px 10px; background: var(--panel-2); }
 .exercise-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
@@ -757,7 +759,7 @@ function toggleTheme() {
    --------------------------------------------------------------------------- */
 // <logic:start>
 // App build version. A test keeps this in sync with the service worker cache name.
-const APP_VERSION = '2026.11.12';
+const APP_VERSION = '2026.11.12.2';
 // <logic:end>
 
 // <logic:start>
@@ -1615,6 +1617,39 @@ function heightDisplay(cm, units) {
   if (units !== 'imperial') return `${round(n, 1)} cm`;
   const totalIn = Math.round(cmToIn(n));
   return `${Math.floor(totalIn / 12)} ft ${totalIn % 12} in`;
+}
+// <logic:end>
+
+// <logic:start>
+// Explains, in plain language built from the real plan data, why the current
+// week is scheduled the way it is. Shown as the Why this week card in Trainer.
+function planRationale(plan, user) {
+  const p = (user && user.profile) || {};
+  const reasons = [];
+  const requested = clamp(Number(p.daysPerWeek) || 3, 1, 7);
+  const dayWord = n => `${n} day${n === 1 ? '' : 's'}`;
+  if (plan.adjustments && plan.adjustments.days) {
+    reasons.push(`You asked for ${dayWord(requested)} per week, but recent missed sessions trimmed this week to ${dayWord(plan.days)}. Log your sessions and the full schedule comes back on its own.`);
+  } else {
+    reasons.push(`You train ${dayWord(plan.days)} per week because that is the time you said you can commit to, and it drives the whole layout.`);
+  }
+  const sessions = plan.schedule.filter(day => !day.rest && !day.recovery);
+  const labels = sessions.map(day => day.label);
+  const focuses = [...new Set(sessions.map(day => day.focus))];
+  if (plan.trainingDays <= 2) {
+    reasons.push(`With only ${dayWord(plan.trainingDays)} of training, ${focuses.length === 1 ? 'every session is full body' : 'the sessions between them cover the whole body'}, so no muscle group waits a week between workouts.`);
+  } else if (plan.trainingDays === 3) {
+    reasons.push(`Three sessions split into ${labels.join(', ')}, so each movement pattern is trained hard once a week with a full week to recover.`);
+  } else {
+    reasons.push(`${dayWord(plan.trainingDays)} of training split into ${labels.join(', ')}, so each area gets worked more than once a week without any session running too long.`);
+  }
+  if (plan.schedule.some(day => day.rest)) {
+    reasons.push('Rest days sit between the harder sessions where possible, because muscle is built during recovery, not during the workout itself.');
+  }
+  const modeText = plan.mode === 'gym' ? 'a standard gym floor' : `bodyweight movements${(p.equipment || []).some(item => ['dumbbells', 'bands', 'kettlebell'].includes(item)) ? ' plus your home kit' : ''}`;
+  reasons.push(`Exercises are chosen for your ${(GOAL_LABELS[p.goal] || 'maintain').toLowerCase()} goal, ${p.experience || 'beginner'} experience and ${modeText}${p.injuries ? ', filtering out movements that commonly aggravate the area you noted' : ''}.`);
+  reasons.push('Progression is built in: when you reach the top of a rep range with good form, the plan nudges you to add a little weight or a harder variation next time.');
+  return reasons;
 }
 // <logic:end>
 function hydrationTarget(user) {
@@ -3653,6 +3688,11 @@ function renderTrainer() {
         <div class="alert-title">Injury-aware selection</div>
         <p>You noted: "${esc(p.injuries)}". ${injuryCount ? `${injuryCount} movement${injuryCount === 1 ? '' : 's'} commonly linked to that area were filtered out of this plan.` : 'Your plan already avoids the highest-risk movements for that area.'} This is not a diagnosis — get clearance from a physiotherapist or doctor before loading an injured area.</p>
       </div>` : ''}
+
+    <div class="card">
+      <div class="card-head"><h2>Why this week looks like this</h2></div>
+      <ul class="why-list">${planRationale(plan, u).map(reason => `<li>${esc(reason)}</li>`).join('')}</ul>
+    </div>
 
     <div class="grid grid-2">
       ${plan.schedule.map(day => {

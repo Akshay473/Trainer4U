@@ -45,7 +45,7 @@ const memoryStorage = (() => {
   return { getItem: key => values.has(key) ? values.get(key) : null, setItem: (key, value) => values.set(key, String(value)) };
 })();
 const factory = new Function('ACTIVITY_MULTIPLIERS', 'GOAL_LABELS', 'today', 'dateOffset', 'localStorage', 'DB_KEY', 'SCHEMA_VERSION', 'uid',
-  code + '\nreturn { clamp, round, safeNum, sortedWeights, currentWeight, weightProgress, workoutsLast7, sleepAverage, loggedDays, bmiFor, bmiCategory, weightTrendPerWeek, weightTrendCategory, calorieDrift, proteinGap, sleepDeficit, macroTargets, baseTargets, getInsights, validateOnboarding, validateCustomFood, gramsForPortion, foodEntryFromFood, validateImportData, recipeMatchScore, weekStart, loadDB, esc, escapeHTML, FOOD_DB, filterFoodItems, APP_VERSION, userUnits, kgToLb, lbToKg, cmToIn, inToCm, weightUnit, lengthUnit, displayWeight, displayLength, parseWeightInput, parseLengthInput, heightDisplay, planRationale, isEncryptedExport, validateEncryptedEnvelope };\n');
+  code + '\nreturn { clamp, round, safeNum, sortedWeights, currentWeight, weightProgress, workoutsLast7, sleepAverage, loggedDays, bmiFor, bmiCategory, weightTrendPerWeek, weightTrendCategory, calorieDrift, proteinGap, sleepDeficit, macroTargets, baseTargets, getInsights, validateOnboarding, validateCustomFood, gramsForPortion, foodEntryFromFood, validateImportData, recipeMatchScore, weekStart, loadDB, esc, escapeHTML, FOOD_DB, filterFoodItems, APP_VERSION, userUnits, kgToLb, lbToKg, cmToIn, inToCm, weightUnit, lengthUnit, displayWeight, displayLength, parseWeightInput, parseLengthInput, heightDisplay, planRationale, isEncryptedExport, validateEncryptedEnvelope, EXERCISES, HOLD_EXERCISES, injuryAvoids, hasEquipment, equipmentScore, repRangeFor, swapMap, swapCandidates, applyPlanSwaps };\n');
 const L = factory(ACTIVITY_MULTIPLIERS, GOAL_LABELS, todayMock, dateOffsetMock, memoryStorage, 'trainer4u_db_v2', 2, () => 'test-food-id');
 
 function mkUser(over = {}) {
@@ -382,6 +382,68 @@ check('progressive overload uses 12-rep upper bound', html.includes("const topOf
 for (const size of [192, 512]) {
   const icon = require('fs').readFileSync(path.join(__dirname, `icons/manifest-${size}.png`));
   check(`manifest icon ${size} is a real PNG`, icon.subarray(1, 4).toString() === 'PNG' && icon.readUInt32BE(16) === size && icon.readUInt32BE(20) === size);
+}
+
+// --- Exercise swaps ---
+{
+  const swapUser = mkUser();
+  const day = () => ({ rest: false, recovery: false, weekday: 0, exercises: [
+    { name: 'Push-up', sets: 3, reps: '12–15', rest: 45, cues: 'original cues' },
+    { name: 'Bodyweight squat', sets: 3, reps: '12–15', rest: 45, cues: 'squat cues' }
+  ] });
+  const mkPlan = () => ({ mode: 'gym', schedule: [day()] });
+
+  check('swapMap is empty without stored swaps', Object.keys(L.swapMap(swapUser, 'gym')).length === 0);
+
+  const pushAlts = L.swapCandidates(swapUser, 'gym', ['Bodyweight squat'], 'Push-up');
+  check('swap candidates share the movement slot', pushAlts.length > 0 && pushAlts.every(name => {
+    const ex = L.EXERCISES.find(item => item.name === name);
+    return ex.slots.includes('pushH');
+  }), pushAlts.join(','));
+  check('swap candidates exclude the original and the day’s other picks', !pushAlts.includes('Push-up') && !pushAlts.includes('Bodyweight squat'));
+  check('swap candidates are sorted', JSON.stringify(pushAlts) === JSON.stringify([...pushAlts].sort()));
+
+  swapUser.planSwaps = { gym: { 0: { 'Push-up': 'Incline push-up' } } };
+  const swapped = L.applyPlanSwaps(swapUser, mkPlan());
+  eq('stored swap replaces the exercise', swapped.schedule[0].exercises[0].name, 'Incline push-up');
+  eq('swap keeps the prescribed sets', swapped.schedule[0].exercises[0].sets, 3);
+  check('swap pulls the replacement’s cues', swapped.schedule[0].exercises[0].cues !== 'original cues');
+  eq('the other exercise is untouched', swapped.schedule[0].exercises[1].name, 'Bodyweight squat');
+
+  swapUser.planSwaps = { gym: { 0: { 'Push-up': 'Barbell back squat' } } };
+  const rejected = L.applyPlanSwaps(swapUser, mkPlan());
+  eq('a swap to a different movement slot is ignored', rejected.schedule[0].exercises[0].name, 'Push-up');
+
+  const homeUser = mkUser({ profile: { equipment: ['bodyweight'] } });
+  const homeAlts = L.swapCandidates(homeUser, 'home', [], 'Push-up');
+  check('home swaps stay within owned equipment', homeAlts.length > 0 && homeAlts.every(name => {
+    const ex = L.EXERCISES.find(item => item.name === name);
+    return ex.equip.includes('bodyweight');
+  }), homeAlts.join(','));
+
+  const injuredUser = mkUser({ profile: { injuries: 'knee pain' } });
+  const squatAlts = L.swapCandidates(injuredUser, 'gym', [], 'Leg extension');
+  check('injury notes filter swap candidates', !squatAlts.some(name => L.injuryAvoids(L.EXERCISES.find(ex => ex.name === name), 'knee pain')));
+
+  swapUser.planSwaps = { gym: { 0: { 'Bodyweight squat': 'Wall sit' } } };
+  const holdSwap = L.applyPlanSwaps(swapUser, mkPlan());
+  eq('swapping to an isometric hold switches to seconds', holdSwap.schedule[0].exercises[1].reps, '30–45 sec');
+
+  swapUser.planSwaps = { gym: { 0: { 'Wall sit': 'Goblet squat' } } };
+  const holdPlan = { mode: 'gym', schedule: [{ rest: false, recovery: false, weekday: 0, exercises: [
+    { name: 'Wall sit', sets: 3, reps: '30–45 sec', rest: 45, cues: 'wall cues' }
+  ] }] };
+  const unhold = L.applyPlanSwaps(swapUser, holdPlan);
+  eq('swapping off a hold restores the goal rep range', unhold.schedule[0].exercises[0].reps, L.repRangeFor(swapUser.profile.goal));
+
+  swapUser.planSwaps = { home: { 0: { 'Push-up': 'Incline push-up' } } };
+  const otherMode = L.applyPlanSwaps(swapUser, mkPlan());
+  eq('swaps are scoped per training mode', otherMode.schedule[0].exercises[0].name, 'Push-up');
+
+  const restPlan = { mode: 'gym', schedule: [{ rest: true, weekday: 1, exercises: [] }, { rest: false, recovery: true, weekday: 2, exercises: [{ name: 'Easy walk', sets: 1, reps: '15–20 min', rest: 0, cues: '' }] }] };
+  swapUser.planSwaps = { gym: { 1: { 'Easy walk': 'Box breathing' }, 2: { 'Easy walk': 'Box breathing' } } };
+  const untouched = L.applyPlanSwaps(swapUser, restPlan);
+  check('rest and recovery days are never swapped', untouched.schedule[0].exercises.length === 0 && untouched.schedule[1].exercises[0].name === 'Easy walk');
 }
 
 console.log('');

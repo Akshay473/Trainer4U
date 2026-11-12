@@ -1,4 +1,4 @@
-/* global state, saveUser, renderApp, RECIPES */
+/* global state, saveUser, renderApp, RECIPES, buildPlan, swapCandidates */
 'use strict';
 const http = require('http');
 const fs = require('fs');
@@ -209,6 +209,45 @@ let browser;
   const whyItems = await page.locator('.why-list li').allTextContents();
   check('trainer explains why the week looks like this', whyItems.length >= 3 && whyItems.some(text => text.includes('per week')), whyItems.join('|'));
   await axe(page, 'Trainer with plan rationale');
+
+  // Exercise swap: pick a planned exercise that has valid alternatives, swap it,
+  // confirm the UI updates and the choice persists in storage and across reload.
+  const swapTarget = await page.evaluate(() => {
+    const plan = buildPlan(state.user);
+    for (const day of plan.schedule) {
+      if (day.rest || day.recovery) continue;
+      for (const ex of day.exercises) {
+        const others = day.exercises.map(item => item.name).filter(name => name !== ex.name);
+        if (swapCandidates(state.user, plan.mode, others, ex.name).length > 0) {
+          return { day: day.weekday, name: ex.name };
+        }
+      }
+    }
+    return null;
+  });
+  check('trainer plan offers a swappable exercise', !!swapTarget);
+  const swapSelector = `button[data-action="swap-exercise"][data-day="${swapTarget.day}"][data-name="${swapTarget.name}"]`;
+  await page.click(swapSelector);
+  await page.waitForSelector('.toast');
+  const swapToast = await page.locator('.toast').textContent();
+  check('swap toast names the replacement', swapToast.includes('Swapped') && swapToast.includes(swapTarget.name), swapToast);
+  const swappedName = await page.evaluate(({ day, original }) => {
+    const plan = buildPlan(state.user);
+    const names = plan.schedule[day].exercises.map(ex => ex.name);
+    return names.includes(original) ? '' : (state.user.planSwaps[plan.mode][day] || {})[original] || '';
+  }, { day: swapTarget.day, original: swapTarget.name });
+  check('swap replaces the exercise in the plan', swappedName.length > 0 && swappedName !== swapTarget.name);
+  const storedSwaps = await page.evaluate(() => {
+    const db = JSON.parse(localStorage.getItem('trainer4u_db_v2'));
+    return db.profiles['browser-test'].planSwaps || null;
+  });
+  check('swap persists to local storage', !!storedSwaps && Object.values(storedSwaps).some(byMode => Object.keys(byMode).length > 0));
+  await page.reload();
+  await page.waitForSelector('.main h1');
+  await tab(page, 'trainer');
+  const persistedNames = await page.locator('.exercise-name').allTextContents();
+  check('swapped exercise survives a reload', persistedNames.includes(swappedName) && !persistedNames.includes(swapTarget.name), persistedNames.join('|'));
+  await axe(page, 'Trainer with swapped exercise');
 
   await tab(page, 'chef');
   await page.fill('#chef-ingredients', 'chicken, rice');

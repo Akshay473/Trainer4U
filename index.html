@@ -10,7 +10,7 @@ Versions through commit c5b049e927cbf6f9edf84ab3bfba4a3482fd9e5c remain MIT-lice
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="description" content="Trainer4U — a private, local-only fitness coaching app for workouts, nutrition, recipes, wellness and progress.">
 <meta name="color-scheme" content="light dark">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-2jGTsYnuZNrakWIRzSJb6WcCv2jzYIKof2cU/I+NQC4='; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-0sH5N8H7z9pH4qa7QKzH+v/335729DpMka+5lQY1vh0='; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'">
 <meta name="theme-color" content="#0F172A">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="#0F172A">
@@ -365,6 +365,7 @@ select { appearance: none; background-image: linear-gradient(45deg, transparent 
 .exercise-cues[open] summary::before { content: "−"; }
 .exercise-cues[open] summary { margin-bottom: 4px; }
 .exercise-cues { font-size: .74rem; color: var(--muted); line-height: 1.45; }
+.swap-btn { margin-top: 7px; font-size: .7rem; }
 .overload { font-size: .7rem; color: var(--accent-ink); font-weight: 650; margin-top: 5px; }
 .history-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 9px 0; border-bottom: 1px dashed var(--line); }
 .history-row:last-child { border-bottom: 0; }
@@ -759,7 +760,7 @@ function toggleTheme() {
    --------------------------------------------------------------------------- */
 // <logic:start>
 // App build version. A test keeps this in sync with the service worker cache name.
-const APP_VERSION = '2026.11.12.3';
+const APP_VERSION = '2026.11.12.4';
 // <logic:end>
 
 // <logic:start>
@@ -874,6 +875,7 @@ function filterFoodItems(query, dbFoods, customFoods) {
    Each exercise lists the movement slots it can fill and the equipment it
    needs. Home plans only use bodyweight plus equipment the user owns.
    --------------------------------------------------------------------------- */
+// <logic:start>
 const EXERCISES = [
   // Squat pattern
   { name: 'Bodyweight squat', slots: ['squat'], equip: ['bodyweight'], cues: 'Feet shoulder width, sit back and down, knees track over toes.' },
@@ -979,6 +981,7 @@ const EXERCISES = [
   { name: 'Cable crunch', slots: ['core'], equip: ['gym'], cues: 'Hinge through the spine, hips still, exhale at the bottom.' },
   { name: 'Hanging knee raise', slots: ['core'], equip: ['gym'], cues: 'Hang tall, curl your knees up without swinging and lower slowly.' }
 ];
+// <logic:end>
 
 /* ---------------------------------------------------------------------------
    Recipe compatibility helpers
@@ -3417,6 +3420,7 @@ const WEEK_ASSIGN = {
   7: [0, 1, 2, 3, 4, 5, 6]
 };
 
+// <logic:start>
 // Injury-aware filtering. These are conservative movement swaps, not medical
 // advice: the app removes exercises that commonly aggravate the area named.
 const INJURY_RULES = [
@@ -3460,10 +3464,6 @@ function injuryAvoids(exercise, injuries) {
   );
 }
 
-function planMode() {
-  return state.trainerMode === 'home' ? 'home' : 'gym';
-}
-
 function hasEquipment(exercise, profile, mode) {
   if (mode === 'gym') return true; // the gym plan assumes a standard gym floor
   if (exercise.equip.includes('bodyweight')) return true;
@@ -3491,6 +3491,74 @@ function repRangeFor(goal) {
   return '8–12';
 }
 
+// Isometric holds are prescribed in seconds rather than reps.
+const HOLD_EXERCISES = new Set(['Plank', 'Side plank', 'Wall sit']);
+
+/* Exercise swaps: user-chosen replacements for planned exercises. Swaps are
+   stored per training mode and weekday (gym and home plans each remember
+   their own choices) and key on the exercise the planner originally picked,
+   so they survive plan regeneration. A stored swap that no longer fits
+   (equipment changed, a new injury note, a different weekly template) is
+   ignored and the original exercise shows instead. */
+function swapMap(user, mode) {
+  const all = user && user.planSwaps;
+  if (!all || typeof all !== 'object') return {};
+  const byMode = all[mode];
+  return byMode && typeof byMode === 'object' ? byMode : {};
+}
+
+// Exercises that could replace `originalName` in a day: same movement slot,
+// available equipment, not injury-flagged, and not already in the day.
+// `otherNames` lists the day's other exercises (the swapped slot excluded).
+function swapCandidates(user, mode, otherNames, originalName) {
+  const original = EXERCISES.find(ex => ex.name === originalName);
+  if (!original) return [];
+  const taken = new Set(otherNames);
+  return EXERCISES
+    .filter(ex => ex.name !== originalName)
+    .filter(ex => ex.slots.some(slot => original.slots.includes(slot)))
+    .filter(ex => hasEquipment(ex, user.profile, mode))
+    .filter(ex => !injuryAvoids(ex, user.profile.injuries))
+    .filter(ex => !taken.has(ex.name))
+    .map(ex => ex.name)
+    .sort();
+}
+
+// Apply the user's stored swaps to a freshly built plan. Sets and rest stay
+// from the original prescription; reps adapt when swapping to or from an
+// isometric hold. Returns the same plan object for chaining.
+function applyPlanSwaps(user, plan) {
+  const reps = repRangeFor(user.profile.goal);
+  plan.schedule.forEach(day => {
+    if (day.rest || day.recovery) return;
+    const daySwaps = swapMap(user, plan.mode)[day.weekday];
+    if (!daySwaps || typeof daySwaps !== 'object') return;
+    const used = new Set(day.exercises.map(ex => ex.name));
+    day.exercises = day.exercises.map(pick => {
+      const replacement = daySwaps[pick.name];
+      if (!replacement || replacement === pick.name) return pick;
+      const others = [...used].filter(name => name !== pick.name);
+      if (!swapCandidates(user, plan.mode, others, pick.name).includes(replacement)) return pick;
+      const ex = EXERCISES.find(item => item.name === replacement);
+      used.delete(pick.name);
+      used.add(ex.name);
+      return {
+        name: ex.name,
+        sets: pick.sets,
+        rest: pick.rest,
+        cues: ex.cues,
+        reps: HOLD_EXERCISES.has(ex.name) ? '30–45 sec' : HOLD_EXERCISES.has(pick.name) ? reps : pick.reps
+      };
+    });
+  });
+  return plan;
+}
+// <logic:end>
+
+function planMode() {
+  return state.trainerMode === 'home' ? 'home' : 'gym';
+}
+
 // Suggest a small weight jump when the top of the rep range is reached.
 function overloadHint(user, exerciseName, reps) {
   const u = user || state.user;
@@ -3507,9 +3575,6 @@ function overloadHint(user, exerciseName, reps) {
   }
   return '';
 }
-
-// Isometric holds are prescribed in seconds rather than reps.
-const HOLD_EXERCISES = new Set(['Plank', 'Side plank', 'Wall sit']);
 
 function planTemplates(days) {
   const full = { focus: 'Full body', slots: ['squat', 'pushH', 'pullH', 'hinge', 'pushV', 'core'], max: 6 };
@@ -3675,7 +3740,8 @@ function buildPlan(user) {
   });
 
   const trainingDays = templates.filter(template => !template.recovery).length;
-  return { days, trainingDays, schedule, adjustments: insights.adjustments, mode, injuries: p.injuries || '' };
+  const plan = { days, trainingDays, schedule, adjustments: insights.adjustments, mode, injuries: p.injuries || '' };
+  return applyPlanSwaps(user, plan);
 }
 
 function renderTrainer() {
@@ -3765,6 +3831,7 @@ function renderTrainer() {
                 ${ex.rest ? `<div class="exercise-meta">Rest ${ex.rest}s between sets</div>` : '<div class="exercise-meta">Continuous, easy pace</div>'}
                 <details class="exercise-cues"><summary>Instructions</summary>${esc(ex.cues)}</details>
                 ${hint ? `<div class="overload">${esc(hint)}</div>` : ''}
+                ${day.recovery ? '' : `<button class="btn btn-xs btn-ghost swap-btn" data-action="swap-exercise" data-day="${day.weekday}" data-name="${esc(ex.name)}" aria-label="Swap ${esc(ex.name)} for a similar exercise" title="Try a different exercise for this slot">⇄ Swap</button>`}
               </div>`;
             }).join('')}
           </div>
@@ -5461,6 +5528,37 @@ document.addEventListener('click', event => {
     case 'logout':
       logout();
       break;
+
+    case 'swap-exercise': {
+      if (!u) break;
+      const swapDay = Number(trigger.dataset.day);
+      const shownName = trigger.dataset.name;
+      const swapPlan = buildPlan(u);
+      const dayCard = swapPlan.schedule[swapDay];
+      if (!dayCard || dayCard.rest || dayCard.recovery || !shownName) break;
+      const swapMode = swapPlan.mode;
+      if (!u.planSwaps) u.planSwaps = {};
+      if (!u.planSwaps[swapMode]) u.planSwaps[swapMode] = {};
+      const dayMap = { ...(u.planSwaps[swapMode][swapDay] || {}) };
+      // The shown exercise may itself be a swap; find the planner's original pick.
+      let originalName = shownName;
+      Object.keys(dayMap).forEach(orig => { if (dayMap[orig] === shownName) originalName = orig; });
+      const otherNames = dayCard.exercises.map(ex => ex.name).filter(name => name !== shownName);
+      const cycle = [originalName, ...swapCandidates(u, swapMode, otherNames, originalName)];
+      if (cycle.length === 1) {
+        toast('No alternative for this movement with your equipment and injury notes.');
+        break;
+      }
+      const nextName = cycle[(cycle.indexOf(shownName) + 1) % cycle.length];
+      Object.keys(dayMap).forEach(key => { if (key === originalName || dayMap[key] === shownName) delete dayMap[key]; });
+      if (nextName !== originalName) dayMap[originalName] = nextName;
+      if (Object.keys(dayMap).length) u.planSwaps[swapMode][swapDay] = dayMap;
+      else delete u.planSwaps[swapMode][swapDay];
+      saveUser();
+      renderApp();
+      toast(nextName === originalName ? `${originalName} is back in the plan.` : `Swapped ${shownName} for ${nextName}. Tap Swap again for another option.`);
+      break;
+    }
 
     case 'log-workout':
       openModal({ type: 'workout', dayIndex: Number(trigger.dataset.day) });

@@ -45,7 +45,7 @@ const memoryStorage = (() => {
   return { getItem: key => values.has(key) ? values.get(key) : null, setItem: (key, value) => values.set(key, String(value)) };
 })();
 const factory = new Function('ACTIVITY_MULTIPLIERS', 'GOAL_LABELS', 'today', 'dateOffset', 'localStorage', 'DB_KEY', 'SCHEMA_VERSION', 'uid',
-  code + '\nreturn { clamp, round, safeNum, sortedWeights, currentWeight, weightProgress, workoutsLast7, sleepAverage, loggedDays, bmiFor, bmiCategory, weightTrendPerWeek, weightTrendCategory, calorieDrift, proteinGap, sleepDeficit, macroTargets, baseTargets, getInsights, validateOnboarding, validateCustomFood, gramsForPortion, foodEntryFromFood, validateImportData, recipeMatchScore, weekStart, loadDB, esc, escapeHTML, FOOD_DB, filterFoodItems, APP_VERSION, userUnits, kgToLb, lbToKg, cmToIn, inToCm, weightUnit, lengthUnit, displayWeight, displayLength, parseWeightInput, parseLengthInput, heightDisplay };\n');
+  code + '\nreturn { clamp, round, safeNum, sortedWeights, currentWeight, weightProgress, workoutsLast7, sleepAverage, loggedDays, bmiFor, bmiCategory, weightTrendPerWeek, weightTrendCategory, calorieDrift, proteinGap, sleepDeficit, macroTargets, baseTargets, getInsights, validateOnboarding, validateCustomFood, gramsForPortion, foodEntryFromFood, validateImportData, recipeMatchScore, weekStart, loadDB, esc, escapeHTML, FOOD_DB, filterFoodItems, APP_VERSION, userUnits, kgToLb, lbToKg, cmToIn, inToCm, weightUnit, lengthUnit, displayWeight, displayLength, parseWeightInput, parseLengthInput, heightDisplay, planRationale };\n');
 const L = factory(ACTIVITY_MULTIPLIERS, GOAL_LABELS, todayMock, dateOffsetMock, memoryStorage, 'trainer4u_db_v2', 2, () => 'test-food-id');
 
 function mkUser(over = {}) {
@@ -315,6 +315,26 @@ try {
   L.validateImportData({ profile: validExport.profile, logs: validExport.logs, settings: { units: 'bad' } });
 } catch (error) { badUnitsRejected = true; }
 check('invalid units setting rejected', badUnitsRejected);
+
+// --- plan rationale (Why this week card) ---
+const mkPlan = (days, trainingDays, labels, adjustmentDays = 0) => ({
+  days, trainingDays, mode: 'gym',
+  adjustments: { days: adjustmentDays },
+  schedule: labels.map((label, index) => ({ weekday: index * 2, rest: false, recovery: false, label, focus: label }))
+    .concat([{ weekday: 6, rest: true, recovery: false, label: 'Rest & recover', focus: '' }])
+});
+const rationale3 = L.planRationale(mkPlan(3, 3, ['Push', 'Pull', 'Legs']), mkUser());
+check('rationale explains the committed days', rationale3.some(line => line.includes('3 days per week') && line.includes('commit')));
+check('rationale names the 3-day split', rationale3.some(line => line.includes('Push, Pull, Legs')));
+check('rationale explains rest days', rationale3.some(line => line.includes('recovery')));
+check('rationale explains progression', rationale3.some(line => line.includes('top of a rep range')));
+const rationaleAdjusted = L.planRationale(mkPlan(2, 2, ['Upper Body', 'Lower Body'], -1), mkUser());
+check('rationale explains auto-coaching trims', rationaleAdjusted.some(line => line.includes('trimmed') && line.includes('3 days per week')));
+check('rationale covers whole body on few days', rationaleAdjusted.some(line => line.includes('cover the whole body')));
+const rationaleInjury = L.planRationale(mkPlan(3, 3, ['Push', 'Pull', 'Legs']), mkUser({ profile: { injuries: 'lower back' } }));
+check('rationale notes injury filtering', rationaleInjury.some(line => line.includes('aggravate')));
+const rationale5 = L.planRationale(mkPlan(5, 5, ['Push', 'Pull', 'Legs', 'Upper', 'Lower']), mkUser({ profile: { daysPerWeek: 5 } }));
+check('rationale explains twice-a-week coverage on 5 days', rationale5.some(line => line.includes('more than once a week')));
 
 // Static release checks for CSP, icons and the removed insecure hash fallback.
 const inlineScript = /<script>([\s\S]*?)<\/script>/.exec(html)[1];

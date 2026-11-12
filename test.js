@@ -45,7 +45,7 @@ const memoryStorage = (() => {
   return { getItem: key => values.has(key) ? values.get(key) : null, setItem: (key, value) => values.set(key, String(value)) };
 })();
 const factory = new Function('ACTIVITY_MULTIPLIERS', 'GOAL_LABELS', 'today', 'dateOffset', 'localStorage', 'DB_KEY', 'SCHEMA_VERSION', 'uid',
-  code + '\nreturn { clamp, round, safeNum, sortedWeights, currentWeight, weightProgress, workoutsLast7, sleepAverage, loggedDays, bmiFor, bmiCategory, weightTrendPerWeek, weightTrendCategory, calorieDrift, proteinGap, sleepDeficit, macroTargets, baseTargets, getInsights, validateOnboarding, validateCustomFood, gramsForPortion, foodEntryFromFood, validateImportData, recipeMatchScore, weekStart, loadDB, esc, escapeHTML, FOOD_DB, filterFoodItems, APP_VERSION, userUnits, kgToLb, lbToKg, cmToIn, inToCm, weightUnit, lengthUnit, displayWeight, displayLength, parseWeightInput, parseLengthInput, heightDisplay, planRationale };\n');
+  code + '\nreturn { clamp, round, safeNum, sortedWeights, currentWeight, weightProgress, workoutsLast7, sleepAverage, loggedDays, bmiFor, bmiCategory, weightTrendPerWeek, weightTrendCategory, calorieDrift, proteinGap, sleepDeficit, macroTargets, baseTargets, getInsights, validateOnboarding, validateCustomFood, gramsForPortion, foodEntryFromFood, validateImportData, recipeMatchScore, weekStart, loadDB, esc, escapeHTML, FOOD_DB, filterFoodItems, APP_VERSION, userUnits, kgToLb, lbToKg, cmToIn, inToCm, weightUnit, lengthUnit, displayWeight, displayLength, parseWeightInput, parseLengthInput, heightDisplay, planRationale, isEncryptedExport, validateEncryptedEnvelope };\n');
 const L = factory(ACTIVITY_MULTIPLIERS, GOAL_LABELS, todayMock, dateOffsetMock, memoryStorage, 'trainer4u_db_v2', 2, () => 'test-food-id');
 
 function mkUser(over = {}) {
@@ -315,6 +315,28 @@ try {
   L.validateImportData({ profile: validExport.profile, logs: validExport.logs, settings: { units: 'bad' } });
 } catch (error) { badUnitsRejected = true; }
 check('invalid units setting rejected', badUnitsRejected);
+
+// --- encrypted backup envelopes ---
+eq('isEncryptedExport detects envelopes', L.isEncryptedExport({ encrypted: true }), true);
+eq('isEncryptedExport ignores plain exports', L.isEncryptedExport({ app: 'Trainer4U' }), false);
+eq('isEncryptedExport ignores arrays', L.isEncryptedExport([{ encrypted: true }]), false);
+const goodEnvelope = { app: 'Trainer4U', encrypted: true, version: 1,
+  kdf: { name: 'PBKDF2', hash: 'SHA-256', iterations: 250000, salt: 'a'.repeat(32) },
+  cipher: { name: 'AES-GCM', iv: 'b'.repeat(24) }, data: 'cd'.repeat(64) };
+let goodAccepted = true;
+try { L.validateEncryptedEnvelope(goodEnvelope); } catch (error) { goodAccepted = false; }
+check('valid envelope accepted', goodAccepted);
+[['salt', { ...goodEnvelope, kdf: { ...goodEnvelope.kdf, salt: 'xyz' } }],
+ ['iterations', { ...goodEnvelope, kdf: { ...goodEnvelope.kdf, iterations: 5 } }],
+ ['kdf name', { ...goodEnvelope, kdf: { ...goodEnvelope.kdf, name: 'scrypt' } }],
+ ['iv', { ...goodEnvelope, cipher: { name: 'AES-GCM', iv: 'zz' } }],
+ ['cipher name', { ...goodEnvelope, cipher: { name: 'AES-CBC', iv: 'b'.repeat(24) } }],
+ ['ciphertext', { ...goodEnvelope, data: 'not-hex' }],
+ ['odd ciphertext', { ...goodEnvelope, data: 'abc' }]].forEach(pair => {
+  let rejected = false;
+  try { L.validateEncryptedEnvelope(pair[1]); } catch (error) { rejected = true; }
+  check(`damaged envelope rejected (${pair[0]})`, rejected);
+});
 
 // --- plan rationale (Why this week card) ---
 const mkPlan = (days, trainingDays, labels, adjustmentDays = 0) => ({

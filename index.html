@@ -10,7 +10,7 @@ Versions through commit c5b049e927cbf6f9edf84ab3bfba4a3482fd9e5c remain MIT-lice
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="description" content="Trainer4U — a private, local-only fitness coaching app for workouts, nutrition, recipes, wellness and progress.">
 <meta name="color-scheme" content="light dark">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-SY0VR0k1TOqHPngQRWEo3MoYoDUsvJQP9duSZc3dSrM='; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-Hl53MlK66FLaE/KffJ+1S3hmgiFxKCX5OHJlGmNDNwQ='; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'">
 <meta name="theme-color" content="#0F172A">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="#0F172A">
@@ -757,7 +757,7 @@ function toggleTheme() {
    --------------------------------------------------------------------------- */
 // <logic:start>
 // App build version. A test keeps this in sync with the service worker cache name.
-const APP_VERSION = '2026.11.10';
+const APP_VERSION = '2026.11.12';
 // <logic:end>
 
 // <logic:start>
@@ -1148,7 +1148,7 @@ function createUser(username, salt, hash) {
     },
     logs: blankLogs(),
     customFoods: [],
-    settings: { theme: '', trainerMode: 'gym' }
+    settings: { theme: '', trainerMode: 'gym', units: 'metric' }
   };
 }
 
@@ -1413,7 +1413,7 @@ async function seedDemoProfile() {
     experience: 'beginner'
   };
   user.logs = sampleLogs();
-  user.settings = { theme: '', trainerMode: 'gym' };
+  user.settings = { theme: '', trainerMode: 'gym', units: 'metric' };
   state.db.profiles.demo = user;
   saveDB();
 }
@@ -1570,6 +1570,51 @@ function bmiCategory(bmi) {
   if (bmi < 25) return { label: 'Healthy range', cls: 'good' };
   if (bmi < 30) return { label: 'Overweight range', cls: 'warn' };
   return { label: 'Obesity range', cls: 'bad' };
+}
+// <logic:end>
+
+// <logic:start>
+// Unit conversion helpers — all stored data stays metric (kg, cm);
+// imperial is a display and input preference that converts at the edge.
+const KG_PER_LB = 0.45359237;
+const CM_PER_IN = 2.54;
+function userUnits(user) {
+  return user && user.settings && user.settings.units === 'imperial' ? 'imperial' : 'metric';
+}
+function kgToLb(kg) { return kg / KG_PER_LB; }
+function lbToKg(lb) { return lb * KG_PER_LB; }
+function cmToIn(cm) { return cm / CM_PER_IN; }
+function inToCm(inches) { return inches * CM_PER_IN; }
+function weightUnit(units) { return units === 'imperial' ? 'lb' : 'kg'; }
+function lengthUnit(units) { return units === 'imperial' ? 'in' : 'cm'; }
+function displayWeight(kg, units) {
+  if (kg === null || kg === undefined || kg === '') return null;
+  const n = Number(kg);
+  if (!Number.isFinite(n)) return null;
+  return units === 'imperial' ? round(kgToLb(n), 1) : round(n, 1);
+}
+function displayLength(cm, units) {
+  if (cm === null || cm === undefined || cm === '') return null;
+  const n = Number(cm);
+  if (!Number.isFinite(n)) return null;
+  return units === 'imperial' ? round(cmToIn(n), 1) : round(n, 1);
+}
+function parseWeightInput(value, units) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return NaN;
+  return units === 'imperial' ? round(lbToKg(n), 2) : n;
+}
+function parseLengthInput(value, units) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return NaN;
+  return units === 'imperial' ? round(inToCm(n), 2) : n;
+}
+function heightDisplay(cm, units) {
+  const n = Number(cm);
+  if (!Number.isFinite(n) || n <= 0) return '—';
+  if (units !== 'imperial') return `${round(n, 1)} cm`;
+  const totalIn = Math.round(cmToIn(n));
+  return `${Math.floor(totalIn / 12)} ft ${totalIn % 12} in`;
 }
 // <logic:end>
 function hydrationTarget(user) {
@@ -1789,7 +1834,7 @@ function getInsights(user) {
         alerts.push({
           level: 'warn',
           title: 'Weight is trending the wrong way',
-          body: `Your weigh-ins are moving ${perWeek > 0 ? 'up' : 'down'} by about ${Math.abs(round(perWeek, 2))} kg per week over the last ${spanDays} days, while your goal is ${(GOAL_LABELS[p.goal] || 'maintain').toLowerCase()}.`,
+          body: `Your weigh-ins are moving ${perWeek > 0 ? 'up' : 'down'} by about ${Math.abs(round(userUnits(user) === 'imperial' ? kgToLb(perWeek) : perWeek, 2))} ${weightUnit(userUnits(user))} per week over the last ${spanDays} days, while your goal is ${(GOAL_LABELS[p.goal] || 'maintain').toLowerCase()}.`,
           fix: p.goal === 'lose'
             ? 'Check portion sizes, drinks and weekend meals before cutting calories further. Keep protein high and review the trend over two weeks, not one weigh-in.'
             : 'Add one calorie-dense meal or snack (oats, nuts, yogurt, rice) and reduce optional cardio. If the trend continues, review your target with a professional.'
@@ -1979,9 +2024,11 @@ function renderDashboard() {
     build: 'Add muscle. Keep the strength.',
     maintain: 'Stay consistent. Protect what you built.'
   };
+  const units = userUnits(u);
+  const wpChangeDisp = displayWeight(wp.change, units);
   const changeText = wp.change === 0
     ? 'No change since your starting weight.'
-    : `${wp.change > 0 ? '+' : ''}${wp.change} kg since your starting weight.`;
+    : `${wp.change > 0 ? '+' : ''}${wpChangeDisp} ${weightUnit(units)} since your starting weight.`;
   const insights = getInsights(u);
   const alertsToShow = insights.alerts.filter(alert => alert.level !== 'good');
   const shownAlerts = insights.alerts.slice(0, 3);
@@ -1999,13 +2046,13 @@ function renderDashboard() {
       <div class="hero-progress">
         <div class="progress-label"><span>Goal progress</span><strong>${wp.pct}%</strong></div>
         <div class="progress ${wp.pct >= 100 ? 'good' : ''}"><span style="width:${wp.pct}%"></span></div>
-        <div class="tiny muted" style="margin-top:7px">${changeText}${wp.target ? ` Target ${wp.target} kg.` : ' Add a target weight in your profile to track a goal.'}</div>
+        <div class="tiny muted" style="margin-top:7px">${changeText}${wp.target ? ` Target ${displayWeight(wp.target, units)} ${weightUnit(units)}.` : ' Add a target weight in your profile to track a goal.'}</div>
       </div>
     </section>
 
     <div class="stats">
-      <div class="stat"><div class="stat-value">${wp.current}<small>kg</small></div><div class="stat-label">Current weight</div><div class="stat-sub">${wp.change > 0 ? '+' : ''}${wp.change} kg</div></div>
-      <div class="stat"><div class="stat-value">${wp.target || '—'}<small>kg</small></div><div class="stat-label">Target weight</div><div class="stat-sub">${wp.target ? `${wp.toGo} kg to go` : 'Set in profile'}</div></div>
+      <div class="stat"><div class="stat-value">${displayWeight(wp.current, units)}<small>${weightUnit(units)}</small></div><div class="stat-label">Current weight</div><div class="stat-sub">${wp.change > 0 ? '+' : ''}${wpChangeDisp} ${weightUnit(units)}</div></div>
+      <div class="stat"><div class="stat-value">${wp.target ? displayWeight(wp.target, units) : '—'}<small>${weightUnit(units)}</small></div><div class="stat-label">Target weight</div><div class="stat-sub">${wp.target ? `${displayWeight(wp.toGo, units)} ${weightUnit(units)} to go` : 'Set in profile'}</div></div>
       <div class="stat"><div class="stat-value">${Math.round(totals.calories)}<small>/${t.calories}</small></div><div class="stat-label">Calories today</div><div class="stat-sub">${Math.max(0, t.calories - Math.round(totals.calories))} kcal left</div></div>
       <div class="stat"><div class="stat-value">${Math.round(totals.protein)}<small>/${t.protein} g</small></div><div class="stat-label">Protein today</div><div class="stat-sub">${t.fat} g fat target</div></div>
       <div class="stat"><div class="stat-value">${weekWorkouts}<small>/${p.daysPerWeek}</small></div><div class="stat-label">Workouts this week</div><div class="stat-sub">${plan.days} scheduled after coaching</div></div>
@@ -3173,7 +3220,9 @@ function renderOnboarding() {
   const editing = state.editingProfile;
   const isNew = !state.user.onboarded;
   const blank = value => isNew ? '' : (value ?? '');
-  const weightValue = isNew ? '' : round(currentWeight(state.user), 1);
+  const weightValue = isNew ? '' : displayWeight(currentWeight(state.user), userUnits(state.user));
+  const obUnits = userUnits(state.user);
+  const obHeightParts = !isNew && p.height ? (() => { const totalIn = Math.round(cmToIn(p.height)); return { ft: Math.floor(totalIn / 12), inch: totalIn % 12 }; })() : null;
   const equipment = isNew ? ['bodyweight'] : (p.equipment || ['bodyweight']);
 
   app.innerHTML = `
@@ -3207,17 +3256,25 @@ function renderOnboarding() {
                 <option value="other" ${selected('other', p.sex)}>Other / prefer not to say</option>
               </select>
             </div>
+            ${obUnits === 'imperial' ? `
+            <div class="field">
+              <label for="ob-height">Height (ft / in)</label>
+              <div style="display:flex;gap:8px">
+                <input id="ob-height" type="number" name="height" min="4" max="7" step="1" required placeholder="ft" value="${obHeightParts ? obHeightParts.ft : ''}" aria-label="Height, feet">
+                <input id="ob-height-in" type="number" name="heightIn" min="0" max="11" step="1" required placeholder="in" value="${obHeightParts ? obHeightParts.inch : ''}" aria-label="Height, inches">
+              </div>
+            </div>` : `
             <div class="field">
               <label for="ob-height">Height (cm)</label>
               <input id="ob-height" type="number" name="height" min="120" max="230" step="0.5" required placeholder="e.g. 175" value="${blank(p.height)}">
+            </div>`}
+            <div class="field">
+              <label for="ob-weight">Current weight (${weightUnit(obUnits)})</label>
+              <input id="ob-weight" type="number" name="weight" min="${obUnits === 'imperial' ? '66' : '30'}" max="${obUnits === 'imperial' ? '660' : '300'}" step="0.1" required placeholder="${obUnits === 'imperial' ? 'e.g. 176' : 'e.g. 80'}" value="${weightValue}">
             </div>
             <div class="field">
-              <label for="ob-weight">Current weight (kg)</label>
-              <input id="ob-weight" type="number" name="weight" min="30" max="300" step="0.1" required placeholder="e.g. 80" value="${weightValue}">
-            </div>
-            <div class="field">
-              <label for="ob-target">Target weight (kg, optional)</label>
-              <input id="ob-target" type="number" name="targetWeight" min="30" max="300" step="0.1" placeholder="e.g. 75" value="${blank(p.targetWeight)}">
+              <label for="ob-target">Target weight (${weightUnit(obUnits)}, optional)</label>
+              <input id="ob-target" type="number" name="targetWeight" min="${obUnits === 'imperial' ? '66' : '30'}" max="${obUnits === 'imperial' ? '660' : '300'}" step="0.1" placeholder="${obUnits === 'imperial' ? 'e.g. 165' : 'e.g. 75'}" value="${isNew || !p.targetWeight ? '' : displayWeight(p.targetWeight, obUnits)}">
             </div>
             <div class="field">
               <label for="ob-days">Available workout days per week</label>
@@ -3377,7 +3434,7 @@ function overloadHint(user, exerciseName, reps) {
   if (reps && Number(reps) >= topOfRange) {
     const exercise = EXERCISES.find(ex => ex.name === exerciseName);
     if (exercise && exercise.equip.includes('dumbbells')) {
-      return `When you can do ${topOfRange} reps easily, add 2.5 kg (or a harder variation).`;
+      return `When you can do ${topOfRange} reps easily, add ${userUnits(u) === 'imperial' ? '5 lb' : '2.5 kg'} (or a harder variation).`;
     }
   }
   return '';
@@ -3646,9 +3703,9 @@ function renderTrainer() {
 
     <div class="card">
       <div class="card-head"><h2>Progressive overload</h2></div>
-      <p class="small muted">Progress comes from doing a little more over time. The hints above use your last logged session: when you hit the top of the rep range with good form, add 2.5 kg (or choose a harder variation). If form breaks, stay at the same weight and build reps first.</p>
+      <p class="small muted">Progress comes from doing a little more over time. The hints above use your last logged session: when you hit the top of the rep range with good form, add ${userUnits(u) === 'imperial' ? '5 lb' : '2.5 kg'} (or choose a harder variation). If form breaks, stay at the same weight and build reps first.</p>
       <div class="grid grid-3" style="margin-top:12px">
-        <div class="stat"><div class="stat-value">${p.experience === 'intermediate' ? '2.5–5 kg' : '2.5 kg'}</div><div class="stat-label">Typical jump</div></div>
+        <div class="stat"><div class="stat-value">${p.experience === 'intermediate' ? (userUnits(u) === 'imperial' ? '5–10 lb' : '2.5–5 kg') : (userUnits(u) === 'imperial' ? '5 lb' : '2.5 kg')}</div><div class="stat-label">Typical jump</div></div>
         <div class="stat"><div class="stat-value">${p.goal === 'lose' ? '45s' : p.goal === 'maintain' ? '60s' : '90s'}</div><div class="stat-label">Rest target</div></div>
         <div class="stat"><div class="stat-value">${repRangeFor(p.goal)}</div><div class="stat-label">Rep range</div></div>
       </div>
@@ -4077,7 +4134,7 @@ function renderDoctor() {
         <div class="stat-value" style="margin-top:3px">${round(bmi, 1)} <span class="badge ${category.cls}" style="vertical-align:middle">${category.label}</span></div>
         <div class="bmi-scale"><div class="bmi-marker" style="left:${markerPct}%"></div></div>
         <div class="scale-labels"><span>15</span><span>18.5</span><span>25</span><span>30</span><span>40</span></div>
-        <p class="tiny muted" style="margin-top:8px">${round(weight, 1)} kg at ${p.height} cm. BMI does not distinguish muscle from fat.</p>
+        <p class="tiny muted" style="margin-top:8px">${displayWeight(weight, userUnits(u))} ${weightUnit(userUnits(u))} at ${heightDisplay(p.height, userUnits(u))}. BMI does not distinguish muscle from fat.</p>
       </div>
 
       <div class="card">
@@ -4156,6 +4213,7 @@ function renderDoctor() {
 function renderProgress() {
   const u = state.user;
   const p = u.profile;
+  const units = userUnits(u);
   const weights = sortedWeights(u);
   const wp = weightProgress(u);
   const measurements = [...u.logs.measurements].sort((a, b) => a.date.localeCompare(b.date));
@@ -4181,8 +4239,8 @@ function renderProgress() {
     </div>
 
     <div class="grid grid-3">
-      <div class="card"><div class="stat-label">Weight change</div><div class="stat-value" style="margin-top:3px">${wp.change > 0 ? '+' : ''}${wp.change}<small>kg</small></div><p class="tiny muted" style="margin-top:4px">Since ${round(wp.start, 1)} kg start.</p></div>
-      <div class="card"><div class="stat-label">Waist change</div><div class="stat-value" style="margin-top:3px">${waistChange === null ? '—' : `${waistChange > 0 ? '+' : ''}${waistChange}`}<small>cm</small></div><p class="tiny muted" style="margin-top:4px">${waistChange === null ? 'Add two waist measurements to see a trend.' : 'A useful signal alongside weight.'}</p></div>
+      <div class="card"><div class="stat-label">Weight change</div><div class="stat-value" style="margin-top:3px">${wp.change > 0 ? '+' : ''}${displayWeight(wp.change, units)}<small>${weightUnit(units)}</small></div><p class="tiny muted" style="margin-top:4px">Since ${displayWeight(wp.start, units)} ${weightUnit(units)} start.</p></div>
+      <div class="card"><div class="stat-label">Waist change</div><div class="stat-value" style="margin-top:3px">${waistChange === null ? '—' : `${waistChange > 0 ? '+' : ''}${displayLength(waistChange, units)}`}<small>${lengthUnit(units)}</small></div><p class="tiny muted" style="margin-top:4px">${waistChange === null ? 'Add two waist measurements to see a trend.' : 'A useful signal alongside weight.'}</p></div>
       <div class="card"><div class="stat-label">Avg calories (7 d)</div><div class="stat-value" style="margin-top:3px">${avgCalories === null ? '—' : avgCalories}<small>kcal</small></div><p class="tiny muted" style="margin-top:4px">Target ${targets(u).calories} kcal.</p></div>
     </div>
 
@@ -4201,7 +4259,7 @@ function renderProgress() {
         <form data-form="add-weight">
           <div class="form-grid">
             <div class="field"><label for="weight-date">Date</label><input id="weight-date" type="date" name="date" value="${today()}" max="${today()}" required></div>
-            <div class="field"><label for="weight-kg">Weight (kg)</label><input id="weight-kg" type="number" name="kg" min="30" max="300" step="0.1" value="${round(currentWeight(u), 1)}" required></div>
+            <div class="field"><label for="weight-kg">Weight (${weightUnit(units)})</label><input id="weight-kg" type="number" name="kg" min="${units === 'imperial' ? '66' : '30'}" max="${units === 'imperial' ? '660' : '300'}" step="0.1" value="${displayWeight(currentWeight(u), units)}" required></div>
           </div>
           <button class="btn btn-primary btn-sm" type="submit" style="margin-top:10px">Save weight</button>
         </form>
@@ -4211,11 +4269,11 @@ function renderProgress() {
         <form data-form="add-measure">
           <div class="form-grid">
             <div class="field span-2"><label for="measure-date">Date</label><input id="measure-date" type="date" name="date" value="${today()}" max="${today()}" required></div>
-            <div class="field"><label for="measure-chest">Chest (cm)</label><input id="measure-chest" type="number" name="chest" min="0" max="250" step="0.1" placeholder="—"></div>
-            <div class="field"><label for="measure-waist">Waist (cm)</label><input id="measure-waist" type="number" name="waist" min="0" max="250" step="0.1" placeholder="—"></div>
-            <div class="field"><label for="measure-hips">Hips (cm)</label><input id="measure-hips" type="number" name="hips" min="0" max="250" step="0.1" placeholder="—"></div>
-            <div class="field"><label for="measure-arm">Arm (cm)</label><input id="measure-arm" type="number" name="arm" min="0" max="100" step="0.1" placeholder="—"></div>
-            <div class="field"><label for="measure-thigh">Thigh (cm)</label><input id="measure-thigh" type="number" name="thigh" min="0" max="150" step="0.1" placeholder="—"></div>
+            <div class="field"><label for="measure-chest">Chest (${lengthUnit(units)})</label><input id="measure-chest" type="number" name="chest" min="0" max="${units === 'imperial' ? '100' : '250'}" step="0.1" placeholder="—"></div>
+            <div class="field"><label for="measure-waist">Waist (${lengthUnit(units)})</label><input id="measure-waist" type="number" name="waist" min="0" max="${units === 'imperial' ? '100' : '250'}" step="0.1" placeholder="—"></div>
+            <div class="field"><label for="measure-hips">Hips (${lengthUnit(units)})</label><input id="measure-hips" type="number" name="hips" min="0" max="${units === 'imperial' ? '100' : '250'}" step="0.1" placeholder="—"></div>
+            <div class="field"><label for="measure-arm">Arm (${lengthUnit(units)})</label><input id="measure-arm" type="number" name="arm" min="0" max="${units === 'imperial' ? '40' : '100'}" step="0.1" placeholder="—"></div>
+            <div class="field"><label for="measure-thigh">Thigh (${lengthUnit(units)})</label><input id="measure-thigh" type="number" name="thigh" min="0" max="${units === 'imperial' ? '60' : '150'}" step="0.1" placeholder="—"></div>
           </div>
           <button class="btn btn-primary btn-sm" type="submit" style="margin-top:10px">Save measurements</button>
         </form>
@@ -4245,11 +4303,11 @@ function renderProgress() {
     <div class="grid grid-2">
       <div class="card">
         <div class="card-head"><h2>Recent weights</h2></div>
-        ${recentWeights.length ? `<div class="table-wrap"><table><thead><tr><th>Date</th><th class="num">Weight</th><th></th></tr></thead><tbody>${recentWeights.map(entry => `<tr><td>${prettyDate(entry.date)}</td><td class="num">${entry.kg} kg</td><td style="text-align:right"><button class="btn btn-xs btn-ghost" data-action="delete-weight" data-id="${esc(entry.date)}">✕</button></td></tr>`).join('')}</tbody></table></div>` : '<div class="empty">No weights logged.</div>'}
+        ${recentWeights.length ? `<div class="table-wrap"><table><thead><tr><th>Date</th><th class="num">Weight</th><th></th></tr></thead><tbody>${recentWeights.map(entry => `<tr><td>${prettyDate(entry.date)}</td><td class="num">${displayWeight(entry.kg, units)} ${weightUnit(units)}</td><td style="text-align:right"><button class="btn btn-xs btn-ghost" data-action="delete-weight" data-id="${esc(entry.date)}">✕</button></td></tr>`).join('')}</tbody></table></div>` : '<div class="empty">No weights logged.</div>'}
       </div>
       <div class="card">
         <div class="card-head"><h2>Recent measurements</h2></div>
-        ${recentMeasures.length ? `<div class="table-wrap"><table><thead><tr><th>Date</th><th class="num">Waist</th><th class="num">Chest</th><th class="num">Hips</th></tr></thead><tbody>${recentMeasures.map(entry => `<tr><td>${prettyDate(entry.date)}</td><td class="num">${entry.waist || '—'}</td><td class="num">${entry.chest || '—'}</td><td class="num">${entry.hips || '—'}</td></tr>`).join('')}</tbody></table></div>` : '<div class="empty">No measurements logged.</div>'}
+        ${recentMeasures.length ? `<div class="table-wrap"><table><thead><tr><th>Date</th><th class="num">Waist (${lengthUnit(units)})</th><th class="num">Chest (${lengthUnit(units)})</th><th class="num">Hips (${lengthUnit(units)})</th></tr></thead><tbody>${recentMeasures.map(entry => `<tr><td>${prettyDate(entry.date)}</td><td class="num">${entry.waist ? displayLength(entry.waist, units) : '—'}</td><td class="num">${entry.chest ? displayLength(entry.chest, units) : '—'}</td><td class="num">${entry.hips ? displayLength(entry.hips, units) : '—'}</td></tr>`).join('')}</tbody></table></div>` : '<div class="empty">No measurements logged.</div>'}
       </div>
     </div>`;
 }
@@ -4457,18 +4515,19 @@ function workoutsPerWeek(user, weeks = 8) {
 function drawCharts() {
   if (!state.user || state.tab !== 'progress') return;
   const u = state.user;
+  const units = userUnits(u);
   const weights = sortedWeights(u);
   drawLineChart(
     $('#weightChart'),
-    weights.map(entry => ({ label: prettyDate(entry.date), value: entry.kg })),
-    { target: u.profile.targetWeight || null, color: cssVar('--accent') }
+    weights.map(entry => ({ label: prettyDate(entry.date), value: displayWeight(entry.kg, units) })),
+    { target: u.profile.targetWeight ? displayWeight(u.profile.targetWeight, units) : null, color: cssVar('--accent') }
   );
   const measures = [...u.logs.measurements]
     .filter(entry => Number(entry[state.measure]) > 0)
     .sort((a, b) => a.date.localeCompare(b.date));
   drawLineChart(
     $('#measureChart'),
-    measures.map(entry => ({ label: prettyDate(entry.date), value: Number(entry[state.measure]) })),
+    measures.map(entry => ({ label: prettyDate(entry.date), value: displayLength(Number(entry[state.measure]), units) })),
     { color: cssVar('--accent') }
   );
   drawBarChart($('#workoutChart'), workoutsPerWeek(u), { color: cssVar('--good') });
@@ -4561,6 +4620,10 @@ function settingsModalMarkup() {
           <div><b>Dark mode</b><p>Follows your system theme until you choose one.</p></div>
           <button class="btn btn-sm" data-action="toggle-theme">${themeIcon()} ${document.documentElement.dataset.theme === 'dark' ? 'Light' : 'Dark'}</button>
         </div>
+        <div class="setting-row">
+          <div><b>Units</b><p>Shown across the app and in forms. Your stored data never changes.</p></div>
+          <button class="btn btn-sm" data-action="toggle-units">${userUnits(u) === 'imperial' ? 'Imperial (lb, ft/in)' : 'Metric (kg, cm)'}</button>
+        </div>
 
         <div class="section-label">Profile</div>
         <div class="setting-row">
@@ -4611,6 +4674,7 @@ function lastExerciseLog(user, name) {
 
 function workoutModalMarkup() {
   const u = state.user;
+  const units = userUnits(u);
   const plan = buildPlan(u);
   const day = plan.schedule[state.modal.dayIndex];
   if (!day || day.rest) {
@@ -4626,7 +4690,7 @@ function workoutModalMarkup() {
     return `
       <div class="log-row">
         <div class="log-ex">${esc(exercise.name)}<small>${exercise.sets} sets · target ${esc(exercise.reps)}</small></div>
-        <input type="number" name="w${index}" min="0" max="500" step="0.5" placeholder="kg" value="${last?.weight || ''}" aria-label="${esc(exercise.name)} weight">
+        <input type="number" name="w${index}" min="0" max="${units === 'imperial' ? '1100' : '500'}" step="0.5" placeholder="${weightUnit(units)}" value="${last && last.weight ? displayWeight(last.weight, units) : ''}" aria-label="${esc(exercise.name)} weight">
         <input type="number" name="r${index}" min="0" max="100" step="1" placeholder="reps" value="${last?.reps || topReps}" aria-label="${esc(exercise.name)} reps">
       </div>`;
   }).join('');
@@ -4646,7 +4710,7 @@ function workoutModalMarkup() {
             <div class="field"><label for="workout-date">Date</label><input id="workout-date" type="date" name="date" value="${today()}" max="${today()}" required></div>
             <div class="field"><label for="workout-duration">Duration (minutes)</label><input id="workout-duration" type="number" name="duration" min="5" max="240" value="45" required></div>
           </div>
-          <div class="log-head"><span>Exercise</span><span>Weight kg</span><span>Reps</span></div>
+          <div class="log-head"><span>Exercise</span><span>Weight ${weightUnit(units)}</span><span>Reps</span></div>
           ${rows}
           <div class="field" style="margin-top:12px">
             <label for="workout-notes">Notes (optional)</label>
@@ -4726,6 +4790,7 @@ function normalizeUser(user) {
   user.profile.diet = normalizeDiet(user.profile.diet);
   user.settings = user.settings || { theme: '' };
   user.settings.trainerMode = user.settings.trainerMode === 'home' ? 'home' : 'gym';
+  user.settings.units = user.settings.units === 'imperial' ? 'imperial' : 'metric';
   user.key = user.key || String(user.username || '').toLowerCase();
   return user;
 }
@@ -4801,14 +4866,14 @@ function validateOnboarding(fields) {
   const height = isNum(fields.height) ? Number(fields.height) : NaN;
   const weight = isNum(fields.weight) ? Number(fields.weight) : NaN;
   if (!Number.isFinite(age) || age < 12 || age > 100) errors.push(['age', 'Please enter a realistic age (12–100).']);
-  if (!Number.isFinite(height) || height < 120 || height > 230) errors.push(['height', 'Please enter a realistic height (120–230 cm).']);
-  if (!Number.isFinite(weight) || weight < 30 || weight > 300) errors.push(['weight', 'Please enter a realistic weight (30–300 kg).']);
+  if (!Number.isFinite(height) || height < 120 || height > 230) errors.push(['height', 'Please enter a realistic height (120–230 cm, about 4 ft – 7 ft 6 in).']);
+  if (!Number.isFinite(weight) || weight < 30 || weight > 300) errors.push(['weight', 'Please enter a realistic weight (30–300 kg, about 66–660 lb).']);
   let targetWeight = null;
   const rawTarget = fields.targetWeight != null ? String(fields.targetWeight).trim() : '';
   if (rawTarget !== '') {
     const tw = Number(rawTarget);
     if (!Number.isFinite(tw) || tw < 30 || tw > 300) {
-      errors.push(['targetWeight', 'Target weight must be within 30–300 kg.']);
+      errors.push(['targetWeight', 'Target weight must be within 30–300 kg (about 66–660 lb).']);
     } else {
       targetWeight = tw;
       if (Number.isFinite(weight)) {
@@ -4832,10 +4897,19 @@ function handleOnboarding(form, formData) {
 
   // ---- Onboarding validation (rejects unrealistic values, inline errors) ----
   const rawAge = String(formData.get('age') || '').trim();
-  const rawHeight = String(formData.get('height') || '').trim();
-  const rawWeight = String(formData.get('weight') || '').trim();
-  const rawTarget = String(formData.get('targetWeight') || '').trim();
+  let rawHeight = String(formData.get('height') || '').trim();
+  let rawWeight = String(formData.get('weight') || '').trim();
+  let rawTarget = String(formData.get('targetWeight') || '').trim();
   const rawGoal = String(formData.get('goal') || '');
+
+  // Imperial inputs are converted to the metric values the app stores.
+  if (userUnits(state.user) === 'imperial') {
+    const feet = Number(rawHeight);
+    const inches = Number(String(formData.get('heightIn') || '').trim() || '0');
+    rawHeight = rawHeight !== '' && Number.isFinite(feet) ? String(round(inToCm(feet * 12 + inches), 1)) : '';
+    rawWeight = rawWeight !== '' && Number.isFinite(Number(rawWeight)) ? String(round(lbToKg(Number(rawWeight)), 2)) : '';
+    rawTarget = rawTarget !== '' && Number.isFinite(Number(rawTarget)) ? String(round(lbToKg(Number(rawTarget)), 2)) : '';
+  }
 
   const formError = (id, message) => {
     const field = form.querySelector(`[name="${id}"]`);
@@ -5079,7 +5153,8 @@ function validateImportData(data) {
   });
   const settings = {
     theme: choice(rawSettings.theme, 'Theme', ['', 'light', 'dark'], ''),
-    trainerMode: choice(rawSettings.trainerMode, 'Trainer mode', ['gym', 'home'], 'gym')
+    trainerMode: choice(rawSettings.trainerMode, 'Trainer mode', ['gym', 'home'], 'gym'),
+    units: choice(rawSettings.units, 'Units', ['metric', 'imperial'], 'metric')
   };
   return { profile, logs: { workouts, food, weights, measurements, sleep, symptoms, hydration }, customFoods, settings };
 }
@@ -5184,6 +5259,17 @@ document.addEventListener('click', event => {
     case 'open-settings':
       openModal({ type: 'settings' });
       break;
+
+    case 'toggle-units': {
+      if (!u) break;
+      u.settings = u.settings || {};
+      u.settings.units = userUnits(u) === 'imperial' ? 'metric' : 'imperial';
+      saveUser();
+      renderModal();
+      renderApp();
+      toast(u.settings.units === 'imperial' ? 'Units set to pounds, feet and inches.' : 'Units set to kilograms and centimetres.');
+      break;
+    }
 
     case 'open-custom-food':
       if (u) openModal({ type: 'custom-food' });
@@ -5439,9 +5525,9 @@ document.addEventListener('submit', async event => {
 
     if (type === 'add-weight') {
       const date = String(formData.get('date') || today());
-      const kg = Number(formData.get('kg'));
+      const kg = parseWeightInput(formData.get('kg'), userUnits(u));
       if (date > today()) { toast('You cannot log a future weigh-in.'); return; }
-      if (!kg || kg < 30 || kg > 300) { toast('Enter a weight between 30 and 300 kg.'); return; }
+      if (!kg || kg < 30 || kg > 300) { toast(userUnits(u) === 'imperial' ? 'Enter a weight between 66 and 660 lb.' : 'Enter a weight between 30 and 300 kg.'); return; }
       u.logs.weights = u.logs.weights.filter(entry => entry.date !== date);
       u.logs.weights.push({ date, kg: round(kg, 1) });
       if (!u.profile.startWeight) u.profile.startWeight = kg;
@@ -5455,14 +5541,21 @@ document.addEventListener('submit', async event => {
     if (type === 'add-measure') {
       const date = String(formData.get('date') || today());
       if (date > today()) { toast('You cannot log future measurements.'); return; }
+      const measureUnits = userUnits(u);
+      const toCm = value => {
+        const raw = String(value ?? '').trim();
+        if (raw === '') return null;
+        const cm = parseLengthInput(raw, measureUnits);
+        return Number.isFinite(cm) && cm > 0 ? round(cm, 1) : null;
+      };
       const entry = {
         id: uid(),
         date,
-        chest: Number(formData.get('chest')) || null,
-        waist: Number(formData.get('waist')) || null,
-        hips: Number(formData.get('hips')) || null,
-        arm: Number(formData.get('arm')) || null,
-        thigh: Number(formData.get('thigh')) || null
+        chest: toCm(formData.get('chest')),
+        waist: toCm(formData.get('waist')),
+        hips: toCm(formData.get('hips')),
+        arm: toCm(formData.get('arm')),
+        thigh: toCm(formData.get('thigh'))
       };
       if (!entry.chest && !entry.waist && !entry.hips && !entry.arm && !entry.thigh) {
         toast('Add at least one measurement.');
@@ -5524,7 +5617,7 @@ document.addEventListener('submit', async event => {
           name: exercise.name,
           sets: exercise.sets,
           reps: Number(formData.get(`r${index}`)) || defaultReps,
-          weight: Number(formData.get(`w${index}`)) || 0
+          weight: parseWeightInput(formData.get(`w${index}`), userUnits(u)) || 0
         };
       });
       u.logs.workouts.push({

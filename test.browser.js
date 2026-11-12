@@ -390,6 +390,39 @@ let browser;
   check('malformed import leaves saved data unchanged', await page.evaluate(() => localStorage.getItem('trainer4u_db_v2')) === beforeMalformed);
   await page.keyboard.press('Escape');
 
+  // Encrypted backup round-trip: export with a password, change the data, restore from the envelope.
+  await page.click('[data-action="open-settings"]');
+  await page.click('[data-action="export-encrypted"]');
+  await page.waitForSelector('form[data-form="backup-password"]');
+  await axe(page, 'Encrypted export dialog');
+  const encDownloadPromise = page.waitForEvent('download');
+  await page.fill('#backup-password', 'backup-pass-123');
+  await page.fill('#backup-password-confirm', 'backup-pass-123');
+  await page.click('form[data-form="backup-password"] button[type="submit"]');
+  const encDownload = await encDownloadPromise;
+  const envelope = JSON.parse(fs.readFileSync(await encDownload.path(), 'utf8'));
+  check('encrypted export downloads an envelope', envelope.encrypted === true && envelope.kdf.name === 'PBKDF2' &&
+    envelope.kdf.iterations === 250000 && envelope.cipher.name === 'AES-GCM' && typeof envelope.data === 'string');
+  check('encrypted export contains no plaintext data', !JSON.stringify(envelope).includes('Homemade dal'));
+  await page.evaluate(() => {
+    state.user.customFoods.push({ id: 'marker-food', name: 'Marker food', servingLabel: '1 piece', servingGrams: 50, calories: 100, protein: 5, carbs: 10, fat: 2 });
+    saveUser();
+  });
+  await page.click('[data-action="open-settings"]');
+  await page.setInputFiles('#import-file', { name: 'backup.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(envelope)) });
+  await page.waitForSelector('form[data-form="backup-password"]');
+  check('encrypted import asks for the backup password', await page.locator('h2', { hasText: 'Unlock encrypted backup' }).count() === 1);
+  await page.fill('#backup-password', 'wrong-password');
+  await page.click('form[data-form="backup-password"] button[type="submit"]');
+  await page.waitForSelector('form[data-form="backup-password"] .field-error');
+  check('wrong backup password keeps data unchanged', await page.evaluate(() => state.user.customFoods.length === 2));
+  await page.fill('#backup-password', 'backup-pass-123');
+  await page.click('form[data-form="backup-password"] button[type="submit"]');
+  await page.waitForSelector('[role="dialog"]', { state: 'detached' });
+  check('encrypted import restores the exported data', await page.evaluate(() =>
+    state.user.customFoods.length === 1 && state.user.customFoods[0].name === 'Homemade dal'
+  ));
+
   await page.setViewportSize({ width: 390, height: 844 });
   check('custom foods layout fits a 390px screen', await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth));
   await axe(page, 'Nutritionist custom foods mobile');

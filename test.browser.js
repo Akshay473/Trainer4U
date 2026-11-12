@@ -204,6 +204,12 @@ let browser;
   await axe(page, 'dashboard light');
   await page.click('header [data-action="toggle-theme"]');
 
+  await tab(page, 'trainer');
+  await page.waitForSelector('.why-list');
+  const whyItems = await page.locator('.why-list li').allTextContents();
+  check('trainer explains why the week looks like this', whyItems.length >= 3 && whyItems.some(text => text.includes('per week')), whyItems.join('|'));
+  await axe(page, 'Trainer with plan rationale');
+
   await tab(page, 'chef');
   await page.fill('#chef-ingredients', 'chicken, rice');
   await page.click('form[data-form="chef-ingredients"] button[type="submit"]');

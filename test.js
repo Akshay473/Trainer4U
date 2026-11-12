@@ -45,7 +45,7 @@ const memoryStorage = (() => {
   return { getItem: key => values.has(key) ? values.get(key) : null, setItem: (key, value) => values.set(key, String(value)) };
 })();
 const factory = new Function('ACTIVITY_MULTIPLIERS', 'GOAL_LABELS', 'today', 'dateOffset', 'localStorage', 'DB_KEY', 'SCHEMA_VERSION', 'uid',
-  code + '\nreturn { clamp, round, safeNum, sortedWeights, currentWeight, weightProgress, workoutsLast7, sleepAverage, loggedDays, bmiFor, bmiCategory, weightTrendPerWeek, weightTrendCategory, calorieDrift, proteinGap, sleepDeficit, macroTargets, baseTargets, getInsights, validateOnboarding, validateCustomFood, gramsForPortion, foodEntryFromFood, validateImportData, recipeMatchScore, weekStart, loadDB, esc, escapeHTML, FOOD_DB, filterFoodItems, APP_VERSION };\n');
+  code + '\nreturn { clamp, round, safeNum, sortedWeights, currentWeight, weightProgress, workoutsLast7, sleepAverage, loggedDays, bmiFor, bmiCategory, weightTrendPerWeek, weightTrendCategory, calorieDrift, proteinGap, sleepDeficit, macroTargets, baseTargets, getInsights, validateOnboarding, validateCustomFood, gramsForPortion, foodEntryFromFood, validateImportData, recipeMatchScore, weekStart, loadDB, esc, escapeHTML, FOOD_DB, filterFoodItems, APP_VERSION, userUnits, kgToLb, lbToKg, cmToIn, inToCm, weightUnit, lengthUnit, displayWeight, displayLength, parseWeightInput, parseLengthInput, heightDisplay };\n');
 const L = factory(ACTIVITY_MULTIPLIERS, GOAL_LABELS, todayMock, dateOffsetMock, memoryStorage, 'trainer4u_db_v2', 2, () => 'test-food-id');
 
 function mkUser(over = {}) {
@@ -290,6 +290,31 @@ try {
   L.validateImportData({ profile: validExport.profile, logs: validExport.logs, settings: { theme: 'bad' } });
 } catch (error) { badSettingsRejected = true; }
 check('invalid settings rejected', badSettingsRejected);
+
+// --- unit conversion helpers (stored data stays metric) ---
+eq('kgToLb converts', L.round(L.kgToLb(80), 1), 176.4);
+eq('lbToKg round-trips', L.round(L.lbToKg(L.kgToLb(80)), 2), 80);
+eq('cmToIn converts', L.round(L.cmToIn(100), 1), 39.4);
+eq('inToCm round-trips', L.round(L.inToCm(L.cmToIn(180)), 2), 180);
+eq('userUnits defaults to metric', L.userUnits({}), 'metric');
+eq('userUnits detects imperial', L.userUnits({ settings: { units: 'imperial' } }), 'imperial');
+eq('displayWeight metric passes through', L.displayWeight(80, 'metric'), 80);
+eq('displayWeight imperial converts', L.displayWeight(80, 'imperial'), 176.4);
+eq('displayWeight handles null', L.displayWeight(null, 'metric'), null);
+check('parseWeightInput imperial stores kg', Math.abs(L.parseWeightInput('176.4', 'imperial') - 80.01) < 0.01);
+eq('parseWeightInput metric passes through', L.parseWeightInput('80', 'metric'), 80);
+eq('displayLength imperial converts', L.displayLength(100, 'imperial'), 39.4);
+check('parseLengthInput imperial stores cm', Math.abs(L.parseLengthInput('39.4', 'imperial') - 100.08) < 0.01);
+eq('heightDisplay metric', L.heightDisplay(175, 'metric'), '175 cm');
+eq('heightDisplay imperial', L.heightDisplay(175, 'imperial'), '5 ft 9 in');
+eq('import defaults missing units to metric', cleaned.settings.units, 'metric');
+const imperialImport = L.validateImportData({ profile: validExport.profile, logs: validExport.logs, settings: { theme: '', trainerMode: 'gym', units: 'imperial' } });
+eq('import accepts imperial units', imperialImport.settings.units, 'imperial');
+let badUnitsRejected = false;
+try {
+  L.validateImportData({ profile: validExport.profile, logs: validExport.logs, settings: { units: 'bad' } });
+} catch (error) { badUnitsRejected = true; }
+check('invalid units setting rejected', badUnitsRejected);
 
 // Static release checks for CSP, icons and the removed insecure hash fallback.
 const inlineScript = /<script>([\s\S]*?)<\/script>/.exec(html)[1];

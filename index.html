@@ -10,7 +10,7 @@ Versions through commit c5b049e927cbf6f9edf84ab3bfba4a3482fd9e5c remain MIT-lice
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="description" content="Trainer4U — a private, local-only fitness coaching app for workouts, nutrition, recipes, wellness and progress.">
 <meta name="color-scheme" content="light dark">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-L+48YqUAKlaM4DEUXrdfOxaqLh705P8m2qCdgLNZWTs='; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-rsv5ukbDlHrx90/R86Lk1mqdv7/bxMJodWZaEoGJXCY='; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'">
 <meta name="theme-color" content="#0F172A">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="#0F172A">
@@ -367,6 +367,14 @@ select { appearance: none; background-image: linear-gradient(45deg, transparent 
 .exercise-cues[open] summary { margin-bottom: 4px; }
 .exercise-cues { font-size: .74rem; color: var(--muted); line-height: 1.45; }
 .swap-btn { margin-top: 7px; font-size: .7rem; }
+.rest-btn { margin-top: 7px; margin-left: 6px; font-size: .7rem; }
+.rest-timer-chip { position: fixed; left: 50%; bottom: 84px; transform: translateX(-50%); z-index: 150; display: flex; align-items: center; gap: 14px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 14px; padding: 10px 14px; box-shadow: 0 12px 32px rgba(0, 0, 0, .45); max-width: calc(100vw - 24px); }
+.rest-timer-chip[hidden] { display: none; }
+.rest-timer-face { min-width: 74px; text-align: center; }
+.rest-timer-time { font-size: 1.45rem; font-weight: 800; font-variant-numeric: tabular-nums; line-height: 1.1; }
+.rest-timer-chip.done .rest-timer-time { color: var(--good); }
+.rest-timer-label { font-size: .68rem; color: var(--muted); max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rest-timer-actions { display: flex; gap: 6px; align-items: center; }
 /* Form figures: inline SVG start/end position guides (no external assets) */
 .form-fig { display: block; width: 100%; max-width: 240px; height: auto; margin: 8px 0 4px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; }
 .form-fig .ground { stroke: var(--muted); stroke-width: 2; opacity: .5; }
@@ -501,6 +509,18 @@ tr:last-child td { border-bottom: 0; }
 <body>
 <div id="app"></div>
 <div id="modal-root"></div>
+<div id="rest-timer" class="rest-timer-chip" role="group" aria-label="Rest timer" hidden>
+  <div class="rest-timer-face">
+    <div class="rest-timer-time" id="rest-timer-time" role="timer">0:00</div>
+    <div class="rest-timer-label" id="rest-timer-label">Rest between sets</div>
+  </div>
+  <div class="rest-timer-actions">
+    <button type="button" class="btn btn-xs btn-ghost" id="rest-timer-pause" data-action="rest-timer-pause">Pause</button>
+    <button type="button" class="btn btn-xs btn-ghost" data-action="rest-timer-add" aria-label="Add 30 seconds to the rest timer">+30s</button>
+    <button type="button" class="btn btn-xs btn-primary" data-action="rest-timer-stop">Done</button>
+  </div>
+</div>
+
 <div id="toast-root" aria-live="polite"></div>
 <script>
 /* ===========================================================================
@@ -534,6 +554,107 @@ function playClickSound() {
   gain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
   osc.start(now);
   osc.stop(now + 0.1);
+}
+
+/* Rest timer: per-exercise countdown the plan already prescribes (ex.rest seconds). */
+const restTimer = { endAt: 0, paused: false, remainingMs: 0, tick: null };
+
+function playRestDoneSound() {
+  if (!toneContext) return;
+  try {
+    const now = toneContext.currentTime;
+    [880, 660].forEach((freq, index) => {
+      const osc = toneContext.createOscillator();
+      const gain = toneContext.createGain();
+      osc.type = 'sine';
+      osc.frequency.value = freq;
+      osc.connect(gain);
+      gain.connect(toneContext.destination);
+      const at = now + index * 0.18;
+      gain.gain.setValueAtTime(0.18, at);
+      gain.gain.exponentialRampToValueAtTime(0.001, at + 0.16);
+      osc.start(at);
+      osc.stop(at + 0.18);
+    });
+  } catch (_) { /* audio is a nicety, never break the timer */ }
+}
+
+function restTimerEls() {
+  return {
+    chip: document.getElementById('rest-timer'),
+    label: document.getElementById('rest-timer-label'),
+    pause: document.getElementById('rest-timer-pause')
+  };
+}
+
+function stopRestTimerInterval() {
+  if (restTimer.tick) { clearInterval(restTimer.tick); restTimer.tick = null; }
+}
+
+function paintRestTimer(remainingMs) {
+  const { chip, pause } = restTimerEls();
+  if (!chip || chip.hidden) return;
+  const time = document.getElementById('rest-timer-time');
+  if (time) time.textContent = formatRestTime(remainingMs / 1000);
+  chip.classList.toggle('done', remainingMs <= 0);
+  if (pause) pause.textContent = restTimer.paused ? 'Resume' : 'Pause';
+}
+
+function finishRestTimer() {
+  stopRestTimerInterval();
+  paintRestTimer(0);
+  playRestDoneSound();
+  if (navigator.vibrate) { try { navigator.vibrate([150, 60, 150]); } catch (_) {} }
+  toast('Rest over - time for the next set.');
+}
+
+function tickRestTimer() {
+  if (restTimer.paused) return;
+  const remaining = restTimer.endAt - Date.now();
+  if (remaining <= 0) finishRestTimer();
+  else paintRestTimer(remaining);
+}
+
+function startRestTimer(seconds, name) {
+  if (!Number.isFinite(seconds) || seconds <= 0) return;
+  const { chip, label } = restTimerEls();
+  if (!chip) return;
+  if (toneContext && toneContext.resume) { try { toneContext.resume(); } catch (_) {} }
+  stopRestTimerInterval();
+  restTimer.paused = false;
+  restTimer.remainingMs = seconds * 1000;
+  restTimer.endAt = Date.now() + restTimer.remainingMs;
+  if (label) label.textContent = name ? `Rest - ${name}` : 'Rest between sets';
+  chip.hidden = false;
+  paintRestTimer(restTimer.remainingMs);
+  restTimer.tick = setInterval(tickRestTimer, 250);
+}
+
+function toggleRestTimerPause() {
+  const { chip } = restTimerEls();
+  if (!chip || chip.hidden) return;
+  if (restTimer.paused) {
+    restTimer.paused = false;
+    restTimer.endAt = Date.now() + restTimer.remainingMs;
+  } else {
+    restTimer.paused = true;
+    restTimer.remainingMs = Math.max(0, restTimer.endAt - Date.now());
+  }
+  paintRestTimer(restTimer.remainingMs);
+}
+
+function extendRestTimer(extraSeconds) {
+  const { chip } = restTimerEls();
+  if (!chip || chip.hidden || !Number.isFinite(extraSeconds) || extraSeconds <= 0) return;
+  if (restTimer.paused) restTimer.remainingMs += extraSeconds * 1000;
+  else restTimer.endAt += extraSeconds * 1000;
+  paintRestTimer(restTimer.paused ? restTimer.remainingMs : restTimer.endAt - Date.now());
+}
+
+function dismissRestTimer() {
+  stopRestTimerInterval();
+  const { chip } = restTimerEls();
+  if (chip) { chip.hidden = true; chip.classList.remove('done'); }
 }
 
 const state = {
@@ -615,6 +736,12 @@ const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => Array.from(root.querySelectorAll(selector));
 
 // <logic:start>
+
+function formatRestTime(seconds) {
+  const total = Math.max(0, Math.ceil(seconds));
+  return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, '0')}`;
+}
+
 function clamp(value, min, max) {
   return Math.min(max, Math.max(min, Number(value)));
 }
@@ -770,7 +897,7 @@ function toggleTheme() {
    --------------------------------------------------------------------------- */
 // <logic:start>
 // App build version. A test keeps this in sync with the service worker cache name.
-const APP_VERSION = '2026.11.13.11';
+const APP_VERSION = '2026.11.13.12';
 // <logic:end>
 
 // <logic:start>
@@ -3938,6 +4065,7 @@ function renderTrainer() {
                 <details class="exercise-cues"><summary>Instructions</summary>${guide}${stepsList || esc(ex.cues)}</details>
                 ${hint ? `<div class="overload">${esc(hint)}</div>` : ''}
                 ${day.recovery ? '' : `<button class="btn btn-xs btn-ghost swap-btn" data-action="swap-exercise" data-day="${day.weekday}" data-name="${esc(ex.name)}" aria-label="Swap ${esc(ex.name)} for a similar exercise" title="Try a different exercise for this slot">⇄ Swap</button>`}
+                ${!day.recovery && ex.rest ? `<button class="btn btn-xs btn-ghost rest-btn" data-action="rest-timer" data-seconds="${ex.rest}" data-name="${esc(ex.name)}" aria-label="Start a ${ex.rest} second rest timer for ${esc(ex.name)}" title="Start the rest timer for this exercise">⏱ Rest</button>` : ''}
               </div>`;
             }).join('')}
           </div>
@@ -5748,6 +5876,22 @@ document.addEventListener('click', event => {
       toast(nextName === originalName ? `${originalName} is back in the plan.` : `Swapped ${shownName} for ${nextName}. Tap Swap again for another option.`);
       break;
     }
+
+    case 'rest-timer':
+      startRestTimer(Number(trigger.dataset.seconds), trigger.dataset.name || '');
+      break;
+
+    case 'rest-timer-pause':
+      toggleRestTimerPause();
+      break;
+
+    case 'rest-timer-add':
+      extendRestTimer(30);
+      break;
+
+    case 'rest-timer-stop':
+      dismissRestTimer();
+      break;
 
     case 'log-workout':
       openModal({ type: 'workout', dayIndex: Number(trigger.dataset.day) });

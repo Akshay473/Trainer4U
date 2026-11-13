@@ -45,7 +45,7 @@ const memoryStorage = (() => {
   return { getItem: key => values.has(key) ? values.get(key) : null, setItem: (key, value) => values.set(key, String(value)) };
 })();
 const factory = new Function('ACTIVITY_MULTIPLIERS', 'GOAL_LABELS', 'today', 'dateOffset', 'localStorage', 'DB_KEY', 'SCHEMA_VERSION', 'uid',
-  code + '\nreturn { clamp, round, safeNum, sortedWeights, currentWeight, weightProgress, workoutsLast7, sleepAverage, loggedDays, bmiFor, bmiCategory, weightTrendPerWeek, weightTrendCategory, calorieDrift, proteinGap, sleepDeficit, macroTargets, baseTargets, getInsights, validateOnboarding, validateCustomFood, gramsForPortion, foodEntryFromFood, validateImportData, recipeMatchScore, weekStart, loadDB, esc, escapeHTML, FOOD_DB, filterFoodItems, APP_VERSION, userUnits, kgToLb, lbToKg, cmToIn, inToCm, weightUnit, lengthUnit, displayWeight, displayLength, parseWeightInput, parseLengthInput, heightDisplay, planRationale, isEncryptedExport, validateEncryptedEnvelope, EXERCISES, HOLD_EXERCISES, injuryAvoids, hasEquipment, equipmentScore, repRangeFor, swapMap, swapCandidates, applyPlanSwaps, estimatedOneRepMax, personalRecords, newRecords, FORM_FIGURES };\n');
+  code + '\nreturn { clamp, round, safeNum, sortedWeights, currentWeight, weightProgress, workoutsLast7, sleepAverage, loggedDays, bmiFor, bmiCategory, weightTrendPerWeek, weightTrendCategory, calorieDrift, proteinGap, sleepDeficit, macroTargets, baseTargets, getInsights, validateOnboarding, validateCustomFood, gramsForPortion, foodEntryFromFood, validateImportData, recipeMatchScore, weekStart, loadDB, esc, escapeHTML, FOOD_DB, filterFoodItems, APP_VERSION, userUnits, kgToLb, lbToKg, cmToIn, inToCm, weightUnit, lengthUnit, displayWeight, displayLength, parseWeightInput, parseLengthInput, heightDisplay, planRationale, isEncryptedExport, validateEncryptedEnvelope, EXERCISES, HOLD_EXERCISES, injuryAvoids, hasEquipment, equipmentScore, repRangeFor, swapMap, swapCandidates, applyPlanSwaps, estimatedOneRepMax, personalRecords, newRecords, FORM_FIGURES, formatRestTime };\n');
 const L = factory(ACTIVITY_MULTIPLIERS, GOAL_LABELS, todayMock, dateOffsetMock, memoryStorage, 'trainer4u_db_v2', 2, () => 'test-food-id');
 
 function mkUser(over = {}) {
@@ -492,6 +492,11 @@ for (const size of [192, 512]) {
   check('moving figures animate, static holds do not', ['squat', 'pushup', 'deadlift', 'bench', 'gobletsquat', 'backsquat', 'walkinglunge', 'rdl', 'kbswing', 'legpress', 'ohp', 'laterlaise', 'dip', 'pullup', 'dbrow', 'facepull', 'barbellcurl', 'skullcrusher', 'deadbug', 'kneepushup', 'wallpushup'].every(k => L.FORM_FIGURES[k].includes('<animate')) && !L.FORM_FIGURES.plank.includes('<animate') && !L.FORM_FIGURES.wallsit.includes('<animate'));
   check('figures are inline SVG with no external references', Object.values(L.FORM_FIGURES).every(markup => !markup.includes('href') && !markup.includes('url(')));
 }
+
+check('formatRestTime formats 90 seconds', L.formatRestTime(90) === '1:30', L.formatRestTime(90));
+check('formatRestTime formats 45 seconds', L.formatRestTime(45) === '0:45', L.formatRestTime(45));
+check('formatRestTime clamps zero and negatives', L.formatRestTime(0) === '0:00' && L.formatRestTime(-5) === '0:00');
+check('formatRestTime rounds partial seconds up', L.formatRestTime(89.2) === '1:30' && L.formatRestTime(60.1) === '1:01');
 
 console.log('');
 console.log('Passed: ' + passed + '  Failed: ' + failed + '  Blocks extracted: ' + blocks.length);

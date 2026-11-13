@@ -45,7 +45,7 @@ const memoryStorage = (() => {
   return { getItem: key => values.has(key) ? values.get(key) : null, setItem: (key, value) => values.set(key, String(value)) };
 })();
 const factory = new Function('ACTIVITY_MULTIPLIERS', 'GOAL_LABELS', 'today', 'dateOffset', 'localStorage', 'DB_KEY', 'SCHEMA_VERSION', 'uid',
-  code + '\nreturn { clamp, round, safeNum, sortedWeights, currentWeight, weightProgress, workoutsLast7, sleepAverage, loggedDays, bmiFor, bmiCategory, weightTrendPerWeek, weightTrendCategory, calorieDrift, proteinGap, sleepDeficit, macroTargets, baseTargets, getInsights, validateOnboarding, validateCustomFood, gramsForPortion, foodEntryFromFood, validateImportData, recipeMatchScore, weekStart, loadDB, esc, escapeHTML, FOOD_DB, filterFoodItems, APP_VERSION, userUnits, kgToLb, lbToKg, cmToIn, inToCm, weightUnit, lengthUnit, displayWeight, displayLength, parseWeightInput, parseLengthInput, heightDisplay, planRationale, isEncryptedExport, validateEncryptedEnvelope, EXERCISES, HOLD_EXERCISES, injuryAvoids, hasEquipment, equipmentScore, repRangeFor, swapMap, swapCandidates, applyPlanSwaps };\n');
+  code + '\nreturn { clamp, round, safeNum, sortedWeights, currentWeight, weightProgress, workoutsLast7, sleepAverage, loggedDays, bmiFor, bmiCategory, weightTrendPerWeek, weightTrendCategory, calorieDrift, proteinGap, sleepDeficit, macroTargets, baseTargets, getInsights, validateOnboarding, validateCustomFood, gramsForPortion, foodEntryFromFood, validateImportData, recipeMatchScore, weekStart, loadDB, esc, escapeHTML, FOOD_DB, filterFoodItems, APP_VERSION, userUnits, kgToLb, lbToKg, cmToIn, inToCm, weightUnit, lengthUnit, displayWeight, displayLength, parseWeightInput, parseLengthInput, heightDisplay, planRationale, isEncryptedExport, validateEncryptedEnvelope, EXERCISES, HOLD_EXERCISES, injuryAvoids, hasEquipment, equipmentScore, repRangeFor, swapMap, swapCandidates, applyPlanSwaps, estimatedOneRepMax, personalRecords, newRecords };\n');
 const L = factory(ACTIVITY_MULTIPLIERS, GOAL_LABELS, todayMock, dateOffsetMock, memoryStorage, 'trainer4u_db_v2', 2, () => 'test-food-id');
 
 function mkUser(over = {}) {
@@ -444,6 +444,40 @@ for (const size of [192, 512]) {
   swapUser.planSwaps = { gym: { 1: { 'Easy walk': 'Box breathing' }, 2: { 'Easy walk': 'Box breathing' } } };
   const untouched = L.applyPlanSwaps(swapUser, restPlan);
   check('rest and recovery days are never swapped', untouched.schedule[0].exercises.length === 0 && untouched.schedule[1].exercises[0].name === 'Easy walk');
+}
+
+// --- Personal records ---
+{
+  eq('Epley: a single rep is the one-rep max', L.estimatedOneRepMax(100, 1), 100);
+  eq('Epley: 100 x 10 estimates 133.33', Math.round(L.estimatedOneRepMax(100, 10) * 100) / 100, 133.33);
+  eq('no load means no record', L.estimatedOneRepMax(0, 15), 0);
+  eq('no reps means no record', L.estimatedOneRepMax(100, 0), 0);
+
+  const prUser = mkUser();
+  prUser.logs.workouts = [
+    { id: 'w1', date: '2026-11-01', exercises: [{ name: 'Bench', weight: 60, reps: 8 }, { name: 'Row', weight: 50, reps: 10 }] },
+    { id: 'w2', date: '2026-11-03', exercises: [{ name: 'Bench', weight: 70, reps: 5 }, { name: 'Plank', weight: 0, reps: 0 }] }
+  ];
+  const prs = L.personalRecords(prUser);
+  eq('one record per exercise, bodyweight skipped', prs.length, 2);
+  const bench = prs.find(r => r.name === 'Bench');
+  check('record picks the stronger set by estimated 1RM', bench.weight === 70 && bench.reps === 5 && bench.date === '2026-11-03', JSON.stringify(bench));
+  check('records sort strongest first', prs[0].oneRepMax >= prs[1].oneRepMax);
+  check('records survive an empty workout log', L.personalRecords(mkUser()).length === 0);
+
+  // newRecords: a first-ever set is a baseline, not a record claim.
+  const baseUser = mkUser();
+  baseUser.logs.workouts = [{ id: 'first', date: '2026-11-01', exercises: [{ name: 'Bench', weight: 100, reps: 5 }] }];
+  eq('first logged set does not cry record', L.newRecords(baseUser, 'first').length, 0);
+
+  baseUser.logs.workouts.push({ id: 'second', date: '2026-11-03', exercises: [{ name: 'Bench', weight: 100, reps: 6 }, { name: 'Row', weight: 40, reps: 10 }] });
+  const hits = L.newRecords(baseUser, 'second');
+  check('beating a prior best is flagged', hits.length === 1 && hits[0] === 'Bench', hits.join(','));
+
+  baseUser.logs.workouts.push({ id: 'third', date: '2026-11-05', exercises: [{ name: 'Bench', weight: 90, reps: 5 }] });
+  eq('a weaker session is not a record', L.newRecords(baseUser, 'third').length, 0);
+  eq('unknown workout id flags nothing', L.newRecords(baseUser, 'missing').length, 0);
+  check('the workout itself is excluded from its own comparison', L.newRecords(baseUser, 'second').length === 1);
 }
 
 console.log('');

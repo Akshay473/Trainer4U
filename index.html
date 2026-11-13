@@ -10,7 +10,7 @@ Versions through commit c5b049e927cbf6f9edf84ab3bfba4a3482fd9e5c remain MIT-lice
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="description" content="Trainer4U — a private, local-only fitness coaching app for workouts, nutrition, recipes, wellness and progress.">
 <meta name="color-scheme" content="light dark">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-0sH5N8H7z9pH4qa7QKzH+v/335729DpMka+5lQY1vh0='; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-3xtPYeSsEMk4pWGv5O4LJrJxIAk5OEMc+pHsais3yOk='; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'">
 <meta name="theme-color" content="#0F172A">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="#0F172A">
@@ -760,7 +760,7 @@ function toggleTheme() {
    --------------------------------------------------------------------------- */
 // <logic:start>
 // App build version. A test keeps this in sync with the service worker cache name.
-const APP_VERSION = '2026.11.12.4';
+const APP_VERSION = '2026.11.13.1';
 // <logic:end>
 
 // <logic:start>
@@ -4368,6 +4368,7 @@ function renderProgress() {
     : null;
   const recentWeights = [...weights].reverse().slice(0, 8);
   const recentMeasures = [...measurements].reverse().slice(0, 6);
+  const records = personalRecords(u).slice(0, 10);
 
   return `
     <div class="section-head">
@@ -4449,6 +4450,13 @@ function renderProgress() {
         <div class="card-head"><h2>Recent measurements</h2></div>
         ${recentMeasures.length ? `<div class="table-wrap"><table><thead><tr><th>Date</th><th class="num">Waist (${lengthUnit(units)})</th><th class="num">Chest (${lengthUnit(units)})</th><th class="num">Hips (${lengthUnit(units)})</th></tr></thead><tbody>${recentMeasures.map(entry => `<tr><td>${prettyDate(entry.date)}</td><td class="num">${entry.waist ? displayLength(entry.waist, units) : '—'}</td><td class="num">${entry.chest ? displayLength(entry.chest, units) : '—'}</td><td class="num">${entry.hips ? displayLength(entry.hips, units) : '—'}</td></tr>`).join('')}</tbody></table></div>` : '<div class="empty">No measurements logged.</div>'}
       </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><h2>Personal records</h2>${records.length ? `<span class="pill">${records.length} lift${records.length === 1 ? '' : 's'}</span>` : ''}</div>
+      ${records.length
+        ? `<div class="table-wrap"><table><thead><tr><th>Exercise</th><th class="num">Best set</th><th class="num">Est. 1RM</th><th>Date</th></tr></thead><tbody>${records.map(record => `<tr><td>${esc(record.name)}</td><td class="num">${displayWeight(record.weight, units)} ${weightUnit(units)} × ${record.reps}</td><td class="num">${displayWeight(round(record.oneRepMax, 1), units)} ${weightUnit(units)}</td><td>${prettyDate(record.date)}</td></tr>`).join('')}</tbody></table></div><p class="tiny muted" style="margin-top:8px">Ranked by estimated one-rep max so different rep ranges compare fairly. Beat a best and it updates on your next logged session.</p>`
+        : '<div class="empty">Log a workout with weights to start your record book. Bodyweight movements are tracked for consistency but are not ranked by load.</div>'}
     </div>`;
 }
 
@@ -4833,6 +4841,60 @@ function settingsModalMarkup() {
     </div>`;
 }
 
+// <logic:start>
+/* Personal records. The best set ever logged per exercise, ranked by the
+   Epley estimated one-rep max so different rep ranges compare fairly.
+   Bodyweight sets (weight 0) are skipped: there is no load to rank. */
+function estimatedOneRepMax(weight, reps) {
+  const w = Number(weight) || 0;
+  const r = Number(reps) || 0;
+  if (w <= 0 || r <= 0) return 0;
+  if (r === 1) return w;
+  return w * (1 + r / 30);
+}
+
+// One best-set record per exercise across the whole workout history,
+// strongest first. Returns [{ name, weight, reps, date, oneRepMax }].
+function personalRecords(user) {
+  const best = new Map();
+  ((user && user.logs.workouts) || []).forEach(workout => {
+    (workout.exercises || []).forEach(ex => {
+      const orm = estimatedOneRepMax(ex.weight, ex.reps);
+      if (orm <= 0) return;
+      const prev = best.get(ex.name);
+      if (!prev || orm > prev.oneRepMax) {
+        best.set(ex.name, { name: ex.name, weight: ex.weight, reps: ex.reps, date: workout.date, oneRepMax: orm });
+      }
+    });
+  });
+  return [...best.values()].sort((a, b) => b.oneRepMax - a.oneRepMax);
+}
+
+// Exercise names in the given workout that beat the best set logged in any
+// OTHER workout. A first-ever set establishes the baseline and is not
+// flagged, so a brand new log does not cry record on every lift.
+function newRecords(user, workoutId) {
+  const workouts = (user && user.logs.workouts) || [];
+  const current = workouts.find(workout => workout.id === workoutId);
+  if (!current) return [];
+  const priorBest = new Map();
+  workouts.filter(workout => workout.id !== workoutId).forEach(workout => {
+    (workout.exercises || []).forEach(ex => {
+      const orm = estimatedOneRepMax(ex.weight, ex.reps);
+      if (orm <= 0) return;
+      const prev = priorBest.get(ex.name);
+      if (!prev || orm > prev) priorBest.set(ex.name, orm);
+    });
+  });
+  return (current.exercises || [])
+    .filter(ex => {
+      const orm = estimatedOneRepMax(ex.weight, ex.reps);
+      return orm > 0 && priorBest.has(ex.name) && orm > priorBest.get(ex.name);
+    })
+    .map(ex => ex.name);
+}
+// <logic:end>
+
 function lastExerciseLog(user, name) {
   const workouts = [...user.logs.workouts].sort((a, b) => a.date.localeCompare(b.date));
   for (let i = workouts.length - 1; i >= 0; i--) {
@@ -4845,6 +4907,7 @@ function lastExerciseLog(user, name) {
 function workoutModalMarkup() {
   const u = state.user;
   const units = userUnits(u);
+  const recordsByName = new Map(personalRecords(u).map(record => [record.name, record]));
   const plan = buildPlan(u);
   const day = plan.schedule[state.modal.dayIndex];
   if (!day || day.rest) {
@@ -4859,7 +4922,7 @@ function workoutModalMarkup() {
     const topReps = parseInt(String(exercise.reps).split(/[–-]/).pop(), 10) || 12;
     return `
       <div class="log-row">
-        <div class="log-ex">${esc(exercise.name)}<small>${exercise.sets} sets · target ${esc(exercise.reps)}</small></div>
+        <div class="log-ex">${esc(exercise.name)}<small>${exercise.sets} sets · target ${esc(exercise.reps)}${recordsByName.has(exercise.name) ? ` · best ${displayWeight(recordsByName.get(exercise.name).weight, units)} ${weightUnit(units)} × ${recordsByName.get(exercise.name).reps}` : ''}</small></div>
         <input type="number" name="w${index}" min="0" max="${units === 'imperial' ? '1100' : '500'}" step="0.5" placeholder="${weightUnit(units)}" value="${last && last.weight ? displayWeight(last.weight, units) : ''}" aria-label="${esc(exercise.name)} weight">
         <input type="number" name="r${index}" min="0" max="100" step="1" placeholder="reps" value="${last?.reps || topReps}" aria-label="${esc(exercise.name)} reps">
       </div>`;
@@ -5895,8 +5958,9 @@ document.addEventListener('submit', async event => {
           weight: parseWeightInput(formData.get(`w${index}`), userUnits(u)) || 0
         };
       });
+      const workoutId = uid();
       u.logs.workouts.push({
-        id: uid(),
+        id: workoutId,
         date: String(formData.get('date') || today()),
         label: day.label,
         focus: day.focus,
@@ -5904,10 +5968,13 @@ document.addEventListener('submit', async event => {
         notes: String(formData.get('notes') || '').trim(),
         exercises
       });
+      const recordsHit = newRecords(u, workoutId);
       saveUser();
       closeModal();
       renderApp();
-      toast('Workout logged. Strong work!');
+      toast(recordsHit.length
+        ? `Workout logged — new personal record${recordsHit.length === 1 ? '' : 's'}: ${recordsHit.slice(0, 3).join(', ')}${recordsHit.length > 3 ? ` +${recordsHit.length - 3} more` : ''}!`
+        : 'Workout logged. Strong work!');
       return;
     }
   } catch (err) {

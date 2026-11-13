@@ -249,6 +249,32 @@ let browser;
   check('swapped exercise survives a reload', persistedNames.includes(swappedName) && !persistedNames.includes(swapTarget.name), persistedNames.join('|'));
   await axe(page, 'Trainer with swapped exercise');
 
+  // Personal records: a first weighted session sets the baseline silently; a
+  // heavier follow-up is flagged as a record and listed on the Progress tab.
+  await page.click(`button[data-action="log-workout"][data-day="${swapTarget.day}"]`);
+  await page.waitForSelector('form[data-form="log-workout"]');
+  await page.fill('input[name="w0"]', '60');
+  await page.fill('input[name="r0"]', '8');
+  await page.click('form[data-form="log-workout"] button[type="submit"]');
+  await page.waitForSelector('.toast');
+  const baselineToast = await page.locator('.toast').textContent();
+  check('first weighted session sets a quiet baseline', baselineToast.includes('Workout logged') && !baselineToast.includes('personal record'), baselineToast);
+  await page.waitForFunction(() => document.querySelectorAll('.toast').length === 0, null, { timeout: 5000 });
+  await page.click(`button[data-action="log-workout"][data-day="${swapTarget.day}"]`);
+  await page.waitForSelector('form[data-form="log-workout"]');
+  check('modal shows the standing best', (await page.locator('.log-row .log-ex small').first().textContent()).includes('best 60 kg × 8'));
+  await page.fill('input[name="w0"]', '70');
+  await page.fill('input[name="r0"]', '8');
+  await page.click('form[data-form="log-workout"] button[type="submit"]');
+  await page.waitForSelector('.toast');
+  const recordToast = await page.locator('.toast').textContent();
+  check('heavier follow-up is flagged as a personal record', recordToast.includes('personal record'), recordToast);
+  await tab(page, 'progress');
+  await page.waitForSelector('.main h1');
+  const recordCard = await page.locator('.card', { hasText: 'Personal records' }).textContent();
+  check('progress lists the new record', recordCard.includes('70 kg × 8'), recordCard.slice(0, 200));
+  await tab(page, 'trainer');
+
   await tab(page, 'chef');
   await page.fill('#chef-ingredients', 'chicken, rice');
   await page.click('form[data-form="chef-ingredients"] button[type="submit"]');

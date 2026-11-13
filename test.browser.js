@@ -545,6 +545,30 @@ let browser;
   }));
   await axe(demo.page, 'populated Progress');
   await demo.page.screenshot({ path: path.join(screenshots, 'trainer4u-progress-populated.png'), fullPage: true });
+  await tab(demo.page, 'trainer');
+  await demo.page.waitForSelector('.rest-btn');
+  await demo.page.click('.rest-btn');
+  await demo.page.waitForSelector('#rest-timer:not([hidden])');
+  const readTimerTotal = () => demo.page.evaluate(() => {
+    const [m, s] = document.getElementById('rest-timer-time').textContent.split(':').map(Number);
+    return m * 60 + s;
+  });
+  check('rest timer starts from an exercise card', await demo.page.evaluate(() => {
+    const chip = document.getElementById('rest-timer');
+    return !chip.hidden && chip.querySelector('.rest-timer-label').textContent.startsWith('Rest - ');
+  }));
+  const startedAt = await readTimerTotal();
+  check('rest timer counts within the prescribed rest', startedAt > 0 && startedAt <= 90, `total=${startedAt}`);
+  await demo.page.click('#rest-timer-pause');
+  await demo.page.waitForTimeout(150);
+  const pausedOnce = await readTimerTotal();
+  await demo.page.waitForTimeout(700);
+  check('rest timer pause holds the countdown', (await readTimerTotal()) === pausedOnce, `${pausedOnce}`);
+  check('rest timer pause toggles to Resume', (await demo.page.locator('#rest-timer-pause').textContent()) === 'Resume');
+  await demo.page.click('#rest-timer [data-action="rest-timer-add"]');
+  check('rest timer +30s extends a paused countdown', (await readTimerTotal()) >= pausedOnce + 29, `${pausedOnce}`);
+  await demo.page.click('#rest-timer [data-action="rest-timer-stop"]');
+  check('rest timer dismisses on Done', await demo.page.evaluate(() => document.getElementById('rest-timer').hidden));
   await demo.context.close();
 
   check('no uncaught browser JavaScript errors', errors.length === 0, errors.join(' | '));

@@ -45,7 +45,7 @@ const memoryStorage = (() => {
   return { getItem: key => values.has(key) ? values.get(key) : null, setItem: (key, value) => values.set(key, String(value)) };
 })();
 const factory = new Function('ACTIVITY_MULTIPLIERS', 'GOAL_LABELS', 'today', 'dateOffset', 'localStorage', 'DB_KEY', 'SCHEMA_VERSION', 'uid',
-  code + '\nreturn { clamp, round, safeNum, sortedWeights, currentWeight, weightProgress, workoutsLast7, sleepAverage, loggedDays, bmiFor, bmiCategory, weightTrendPerWeek, weightTrendCategory, calorieDrift, proteinGap, sleepDeficit, macroTargets, baseTargets, getInsights, validateOnboarding, validateCustomFood, gramsForPortion, foodEntryFromFood, validateImportData, recipeMatchScore, weekStart, loadDB, esc, escapeHTML, FOOD_DB, filterFoodItems, APP_VERSION, userUnits, kgToLb, lbToKg, cmToIn, inToCm, weightUnit, lengthUnit, displayWeight, displayLength, parseWeightInput, parseLengthInput, heightDisplay, planRationale, isEncryptedExport, validateEncryptedEnvelope, EXERCISES, HOLD_EXERCISES, injuryAvoids, hasEquipment, equipmentScore, repRangeFor, swapMap, swapCandidates, applyPlanSwaps, estimatedOneRepMax, personalRecords, newRecords };\n');
+  code + '\nreturn { clamp, round, safeNum, sortedWeights, currentWeight, weightProgress, workoutsLast7, sleepAverage, loggedDays, bmiFor, bmiCategory, weightTrendPerWeek, weightTrendCategory, calorieDrift, proteinGap, sleepDeficit, macroTargets, baseTargets, getInsights, validateOnboarding, validateCustomFood, gramsForPortion, foodEntryFromFood, validateImportData, recipeMatchScore, weekStart, loadDB, esc, escapeHTML, FOOD_DB, filterFoodItems, APP_VERSION, userUnits, kgToLb, lbToKg, cmToIn, inToCm, weightUnit, lengthUnit, displayWeight, displayLength, parseWeightInput, parseLengthInput, heightDisplay, planRationale, isEncryptedExport, validateEncryptedEnvelope, EXERCISES, HOLD_EXERCISES, injuryAvoids, hasEquipment, equipmentScore, repRangeFor, swapMap, swapCandidates, applyPlanSwaps, estimatedOneRepMax, personalRecords, newRecords, FORM_FIGURES };\n');
 const L = factory(ACTIVITY_MULTIPLIERS, GOAL_LABELS, todayMock, dateOffsetMock, memoryStorage, 'trainer4u_db_v2', 2, () => 'test-food-id');
 
 function mkUser(over = {}) {
@@ -478,6 +478,17 @@ for (const size of [192, 512]) {
   eq('a weaker session is not a record', L.newRecords(baseUser, 'third').length, 0);
   eq('unknown workout id flags nothing', L.newRecords(baseUser, 'missing').length, 0);
   check('the workout itself is excluded from its own comparison', L.newRecords(baseUser, 'second').length === 1);
+}
+
+// --- Form figures ---
+{
+  const withFig = L.EXERCISES.filter(ex => ex.fig);
+  eq('five exercises ship a form figure', withFig.length, 5);
+  check('every fig key resolves to an SVG', withFig.every(ex => L.FORM_FIGURES[ex.fig] && L.FORM_FIGURES[ex.fig].startsWith('<svg')), withFig.map(ex => ex.fig).join(','));
+  check('every figure has an accessible label', withFig.every(ex => L.FORM_FIGURES[ex.fig].includes('aria-label=')));
+  check('every figured exercise has numbered steps', withFig.every(ex => Array.isArray(ex.steps) && ex.steps.length >= 3));
+  check('moving figures animate, static holds do not', ['squat', 'pushup', 'deadlift', 'bench'].every(k => L.FORM_FIGURES[k].includes('<animate')) && !L.FORM_FIGURES.plank.includes('<animate'));
+  check('figures are inline SVG with no external references', Object.values(L.FORM_FIGURES).every(markup => !markup.includes('href') && !markup.includes('url(')));
 }
 
 console.log('');

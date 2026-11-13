@@ -275,6 +275,20 @@ let browser;
   check('progress lists the new record', recordCard.includes('70 kg × 8'), recordCard.slice(0, 200));
   await tab(page, 'trainer');
 
+  // Form figures: at least one planned exercise carries an inline SVG guide that
+  // renders, is labelled for screen readers, animates, and passes axe.
+  const figIndex = await page.evaluate(() =>
+    Array.from(document.querySelectorAll('.exercise-cues')).findIndex(d => d.querySelector('svg.form-fig')));
+  check('at least one planned exercise shows a form figure', figIndex >= 0);
+  const figDetails = page.locator('.exercise-cues').nth(figIndex);
+  await figDetails.locator('summary').click();
+  const figSvg = figDetails.locator('svg.form-fig');
+  check('form figure is visible once instructions open', await figSvg.isVisible());
+  check('form figure has a descriptive label', ((await figSvg.getAttribute('aria-label')) || '').length > 15);
+  check('moving figures include animation', await figSvg.locator('animate').count() > 0);
+  check('numbered steps accompany the figure', await figDetails.locator('.cue-steps li').count() >= 3);
+  await axe(page, 'Trainer with form figure open');
+
   await tab(page, 'chef');
   await page.fill('#chef-ingredients', 'chicken, rice');
   await page.click('form[data-form="chef-ingredients"] button[type="submit"]');

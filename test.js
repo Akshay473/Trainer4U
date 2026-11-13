@@ -483,11 +483,13 @@ for (const size of [192, 512]) {
 // --- Form figures ---
 {
   const withFig = L.EXERCISES.filter(ex => ex.fig);
-  eq('seventy-six exercises ship a form figure', withFig.length, 76);
+  eq('seventy-eight exercises ship a form figure', withFig.length, 78);
   check('every fig key resolves to an SVG', withFig.every(ex => L.FORM_FIGURES[ex.fig] && L.FORM_FIGURES[ex.fig].startsWith('<svg')), withFig.map(ex => ex.fig).join(','));
   check('every figure has an accessible label', withFig.every(ex => L.FORM_FIGURES[ex.fig].includes('aria-label=')));
   check('every figured exercise has numbered steps', withFig.every(ex => Array.isArray(ex.steps) && ex.steps.length >= 3));
-  check('moving figures animate, static holds do not', ['squat', 'pushup', 'deadlift', 'bench', 'gobletsquat', 'backsquat', 'walkinglunge', 'rdl', 'kbswing', 'legpress', 'ohp', 'laterlaise', 'dip', 'pullup', 'dbrow', 'facepull', 'barbellcurl', 'skullcrusher', 'deadbug'].every(k => L.FORM_FIGURES[k].includes('<animate')) && !L.FORM_FIGURES.plank.includes('<animate') && !L.FORM_FIGURES.wallsit.includes('<animate'));
+  const regressions = L.EXERCISES.filter(ex => ex.lvl === 0);
+  check('beginner regressions exist and stay bodyweight', regressions.some(ex => ex.name === 'Wall push-up') && regressions.some(ex => ex.name === 'Knee push-up') && regressions.every(ex => ex.equip.includes('bodyweight')) && regressions.length >= 5);
+  check('moving figures animate, static holds do not', ['squat', 'pushup', 'deadlift', 'bench', 'gobletsquat', 'backsquat', 'walkinglunge', 'rdl', 'kbswing', 'legpress', 'ohp', 'laterlaise', 'dip', 'pullup', 'dbrow', 'facepull', 'barbellcurl', 'skullcrusher', 'deadbug', 'kneepushup', 'wallpushup'].every(k => L.FORM_FIGURES[k].includes('<animate')) && !L.FORM_FIGURES.plank.includes('<animate') && !L.FORM_FIGURES.wallsit.includes('<animate'));
   check('figures are inline SVG with no external references', Object.values(L.FORM_FIGURES).every(markup => !markup.includes('href') && !markup.includes('url(')));
 }
 

@@ -45,7 +45,7 @@ const memoryStorage = (() => {
   return { getItem: key => values.has(key) ? values.get(key) : null, setItem: (key, value) => values.set(key, String(value)) };
 })();
 const factory = new Function('ACTIVITY_MULTIPLIERS', 'GOAL_LABELS', 'today', 'dateOffset', 'localStorage', 'DB_KEY', 'SCHEMA_VERSION', 'uid',
-  code + '\nreturn { clamp, round, safeNum, sortedWeights, currentWeight, weightProgress, workoutsLast7, sleepAverage, loggedDays, bmiFor, bmiCategory, weightTrendPerWeek, weightTrendCategory, calorieDrift, proteinGap, sleepDeficit, macroTargets, baseTargets, getInsights, validateOnboarding, validateCustomFood, gramsForPortion, foodEntryFromFood, validateImportData, recipeMatchScore, groceryItemsForRecipe, groceryMerge, groceryText, weekStart, loadDB, esc, escapeHTML, FOOD_DB, filterFoodItems, APP_VERSION, userUnits, kgToLb, lbToKg, cmToIn, inToCm, weightUnit, lengthUnit, displayWeight, displayLength, parseWeightInput, parseLengthInput, heightDisplay, planRationale, isEncryptedExport, validateEncryptedEnvelope, EXERCISES, HOLD_EXERCISES, injuryAvoids, hasEquipment, equipmentScore, repRangeFor, swapMap, swapCandidates, applyPlanSwaps, sessionSetDone, workoutDraftFromSession, sessionBests, isPlateaued, workoutVolume, estimatedOneRepMax, personalRecords, newRecords, FORM_FIGURES, formatRestTime, planEditsFor, setPlanEdit, applyPlanEdits, filterWorkoutHistory };\n');
+  code + '\nreturn { clamp, round, safeNum, sortedWeights, currentWeight, weightProgress, workoutsLast7, sleepAverage, loggedDays, bmiFor, bmiCategory, weightTrendPerWeek, weightTrendCategory, calorieDrift, proteinGap, sleepDeficit, macroTargets, baseTargets, getInsights, validateOnboarding, validateCustomFood, gramsForPortion, foodEntryFromFood, validateImportData, recipeMatchScore, groceryItemsForRecipe, groceryMerge, groceryText, weekStart, loadDB, esc, escapeHTML, FOOD_DB, filterFoodItems, APP_VERSION, userUnits, kgToLb, lbToKg, cmToIn, inToCm, weightUnit, lengthUnit, displayWeight, displayLength, parseWeightInput, parseLengthInput, heightDisplay, planRationale, isEncryptedExport, validateEncryptedEnvelope, EXERCISES, HOLD_EXERCISES, injuryAvoids, hasEquipment, equipmentScore, repRangeFor, swapMap, swapCandidates, applyPlanSwaps, sessionSetDone, workoutDraftFromSession, sessionBests, isPlateaued, workoutVolume, estimatedOneRepMax, personalRecords, newRecords, FORM_FIGURES, formatRestTime, planEditsFor, setPlanEdit, applyPlanEdits, filterWorkoutHistory, deloadActive, deloadWeight };\n');
 const L = factory(ACTIVITY_MULTIPLIERS, GOAL_LABELS, todayMock, dateOffsetMock, memoryStorage, 'trainer4u_db_v2', 2, () => 'test-food-id');
 
 function mkUser(over = {}) {
@@ -460,6 +460,14 @@ check('history filter search matches label case-insensitively', L.filterWorkoutH
 check('history filter search matches notes', L.filterWorkoutHistory(whUser, { period: 'all', query: 'knee' }).map(w => w.id).join(',') === 'w2');
 check('history filter combines period and search', L.filterWorkoutHistory(whUser, { period: 'week', query: 'upper' }).map(w => w.id).join(',') === 'w1');
 check('history filter with no filters defaults to all', L.filterWorkoutHistory(whUser, null).length === 4);
+
+// Deload week
+const deloadUser = mkUser({ settings: { theme: '', trainerMode: 'gym', deloadUntil: '2026-11-12' } });
+check('deload active while end date is today or later', L.deloadActive(deloadUser, '2026-11-05') === true && L.deloadActive(deloadUser, '2026-11-12') === true);
+check('deload inactive after the end date', L.deloadActive(deloadUser, '2026-11-13') === false);
+check('deload inactive when never set', L.deloadActive(mkUser(), '2026-11-05') === false);
+check('deload weight takes 10% off and rounds to half kg', L.deloadWeight(100) === 90 && L.deloadWeight(87.5) === 79);
+check('deload weight handles zero and junk', L.deloadWeight(0) === 0 && L.deloadWeight('abc') === 0);
 
 // Static release checks for CSP, icons and the removed insecure hash fallback.
 const inlineScript = /<script>([\s\S]*?)<\/script>/.exec(html)[1];

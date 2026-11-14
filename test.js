@@ -45,7 +45,7 @@ const memoryStorage = (() => {
   return { getItem: key => values.has(key) ? values.get(key) : null, setItem: (key, value) => values.set(key, String(value)) };
 })();
 const factory = new Function('ACTIVITY_MULTIPLIERS', 'GOAL_LABELS', 'today', 'dateOffset', 'localStorage', 'DB_KEY', 'SCHEMA_VERSION', 'uid',
-  code + '\nreturn { clamp, round, safeNum, sortedWeights, currentWeight, weightProgress, workoutsLast7, sleepAverage, loggedDays, bmiFor, bmiCategory, weightTrendPerWeek, weightTrendCategory, calorieDrift, proteinGap, sleepDeficit, macroTargets, baseTargets, getInsights, validateOnboarding, validateCustomFood, gramsForPortion, foodEntryFromFood, validateImportData, recipeMatchScore, weekStart, loadDB, esc, escapeHTML, FOOD_DB, filterFoodItems, APP_VERSION, userUnits, kgToLb, lbToKg, cmToIn, inToCm, weightUnit, lengthUnit, displayWeight, displayLength, parseWeightInput, parseLengthInput, heightDisplay, planRationale, isEncryptedExport, validateEncryptedEnvelope, EXERCISES, HOLD_EXERCISES, injuryAvoids, hasEquipment, equipmentScore, repRangeFor, swapMap, swapCandidates, applyPlanSwaps, estimatedOneRepMax, personalRecords, newRecords, FORM_FIGURES, formatRestTime };\n');
+  code + '\nreturn { clamp, round, safeNum, sortedWeights, currentWeight, weightProgress, workoutsLast7, sleepAverage, loggedDays, bmiFor, bmiCategory, weightTrendPerWeek, weightTrendCategory, calorieDrift, proteinGap, sleepDeficit, macroTargets, baseTargets, getInsights, validateOnboarding, validateCustomFood, gramsForPortion, foodEntryFromFood, validateImportData, recipeMatchScore, weekStart, loadDB, esc, escapeHTML, FOOD_DB, filterFoodItems, APP_VERSION, userUnits, kgToLb, lbToKg, cmToIn, inToCm, weightUnit, lengthUnit, displayWeight, displayLength, parseWeightInput, parseLengthInput, heightDisplay, planRationale, isEncryptedExport, validateEncryptedEnvelope, EXERCISES, HOLD_EXERCISES, injuryAvoids, hasEquipment, equipmentScore, repRangeFor, swapMap, swapCandidates, applyPlanSwaps, estimatedOneRepMax, personalRecords, newRecords, FORM_FIGURES, formatRestTime, planEditsFor, setPlanEdit, applyPlanEdits };\n');
 const L = factory(ACTIVITY_MULTIPLIERS, GOAL_LABELS, todayMock, dateOffsetMock, memoryStorage, 'trainer4u_db_v2', 2, () => 'test-food-id');
 
 function mkUser(over = {}) {
@@ -497,6 +497,36 @@ check('formatRestTime formats 90 seconds', L.formatRestTime(90) === '1:30', L.fo
 check('formatRestTime formats 45 seconds', L.formatRestTime(45) === '0:45', L.formatRestTime(45));
 check('formatRestTime clamps zero and negatives', L.formatRestTime(0) === '0:00' && L.formatRestTime(-5) === '0:00');
 check('formatRestTime rounds partial seconds up', L.formatRestTime(89.2) === '1:30' && L.formatRestTime(60.1) === '1:01');
+
+{
+  const tuneUser = () => ({ profile: { goal: 'maintain', injuries: '' }, planEdits: {} });
+  const tunePlan = () => ({ mode: 'gym', schedule: [
+    { weekday: 0, weekdayName: 'Mon', rest: false, recovery: false, exercises: [{ name: 'A', sets: 3, reps: '10-12', rest: 60 }, { name: 'B', sets: 4, reps: '10-12', rest: 60 }] },
+    { weekday: 1, weekdayName: 'Tue', rest: true, recovery: false, exercises: [] }
+  ] });
+  const u1 = tuneUser();
+  L.setPlanEdit(u1, 'gym', 0, 'A', { sets: 9 });
+  const p1 = L.applyPlanEdits(u1, tunePlan());
+  check('plan tuning clamps custom sets to 6', p1.schedule[0].exercises[0].sets === 6, String(p1.schedule[0].exercises[0].sets));
+  const u2 = tuneUser();
+  L.setPlanEdit(u2, 'gym', 0, 'A', { sets: 0 });
+  check('plan tuning clamps custom sets to 1', L.applyPlanEdits(u2, tunePlan()).schedule[0].exercises[0].sets === 1);
+  const u3 = tuneUser();
+  L.setPlanEdit(u3, 'gym', 0, 'B', { off: true });
+  const p3 = L.applyPlanEdits(u3, tunePlan());
+  check('plan tuning removes an exercise and records it for restore', p3.schedule[0].exercises.length === 1 && p3.schedule[0].exercises[0].name === 'A' && p3.schedule[0].removed.join(',') === 'B', JSON.stringify(p3.schedule[0].removed));
+  L.setPlanEdit(u3, 'gym', 0, 'B', { off: false });
+  const p4 = L.applyPlanEdits(u3, tunePlan());
+  check('plan tuning restore brings the exercise back and prunes storage', p4.schedule[0].exercises.length === 2 && !u3.planEdits.gym[0], JSON.stringify(u3.planEdits));
+  const u5 = tuneUser();
+  L.setPlanEdit(u5, 'gym', 0, 'Ghost', { sets: 5, off: true });
+  const p5 = L.applyPlanEdits(u5, tunePlan());
+  check('plan tuning ignores edits for exercises no longer planned', p5.schedule[0].exercises.length === 2 && p5.schedule[0].exercises[0].sets === 3);
+  const u6 = tuneUser();
+  L.setPlanEdit(u6, 'gym', 1, 'A', { off: true });
+  check('plan tuning leaves rest days untouched', L.applyPlanEdits(u6, tunePlan()).schedule[1].exercises.length === 0 && L.applyPlanEdits(u6, tunePlan()).schedule[1].rest === true);
+  check('plan tuning edits are scoped per mode and weekday', Object.keys(L.planEditsFor(u1, 'home', 0)).length === 0 && Object.keys(L.planEditsFor(u1, 'gym', 2)).length === 0);
+}
 
 console.log('');
 console.log('Passed: ' + passed + '  Failed: ' + failed + '  Blocks extracted: ' + blocks.length);

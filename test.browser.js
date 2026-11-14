@@ -569,6 +569,23 @@ let browser;
   check('rest timer +30s extends a paused countdown', (await readTimerTotal()) >= pausedOnce + 29, `${pausedOnce}`);
   await demo.page.click('#rest-timer [data-action="rest-timer-stop"]');
   check('rest timer dismisses on Done', await demo.page.evaluate(() => document.getElementById('rest-timer').hidden));
+
+  const tuneSets = () => demo.page.locator('.exercise').first().locator('.exercise-head .badge').textContent();
+  const setsBefore = parseInt(await tuneSets(), 10);
+  await demo.page.locator('.exercise').first().locator('[data-action="plan-edit-sets"][data-dir="1"]').click();
+  await demo.page.waitForTimeout(200);
+  check('plan tuning adds a set', parseInt(await tuneSets(), 10) === setsBefore + 1, `before=${setsBefore}`);
+  await demo.page.locator('.exercise').first().locator('[data-action="plan-edit-sets"][data-dir="-1"]').click();
+  await demo.page.waitForTimeout(200);
+  check('plan tuning removes a set back', parseInt(await tuneSets(), 10) === setsBefore);
+  const cardsBefore = await demo.page.locator('.exercise').count();
+  await demo.page.locator('.exercise').first().locator('[data-action="plan-edit-remove"]').click();
+  await demo.page.waitForTimeout(200);
+  check('plan tuning remove drops the exercise', (await demo.page.locator('.exercise').count()) === cardsBefore - 1);
+  check('plan tuning shows a restore row', await demo.page.locator('.removed-row [data-action="plan-edit-restore"]').first().isVisible());
+  await demo.page.locator('.removed-row [data-action="plan-edit-restore"]').first().click();
+  await demo.page.waitForTimeout(200);
+  check('plan tuning restore brings the exercise back', (await demo.page.locator('.exercise').count()) === cardsBefore);
   await demo.context.close();
 
   check('no uncaught browser JavaScript errors', errors.length === 0, errors.join(' | '));

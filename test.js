@@ -45,7 +45,7 @@ const memoryStorage = (() => {
   return { getItem: key => values.has(key) ? values.get(key) : null, setItem: (key, value) => values.set(key, String(value)) };
 })();
 const factory = new Function('ACTIVITY_MULTIPLIERS', 'GOAL_LABELS', 'today', 'dateOffset', 'localStorage', 'DB_KEY', 'SCHEMA_VERSION', 'uid',
-  code + '\nreturn { clamp, round, safeNum, sortedWeights, currentWeight, weightProgress, workoutsLast7, sleepAverage, loggedDays, bmiFor, bmiCategory, weightTrendPerWeek, weightTrendCategory, calorieDrift, proteinGap, sleepDeficit, macroTargets, baseTargets, getInsights, validateOnboarding, validateCustomFood, gramsForPortion, foodEntryFromFood, validateImportData, recipeMatchScore, weekStart, loadDB, esc, escapeHTML, FOOD_DB, filterFoodItems, APP_VERSION, userUnits, kgToLb, lbToKg, cmToIn, inToCm, weightUnit, lengthUnit, displayWeight, displayLength, parseWeightInput, parseLengthInput, heightDisplay, planRationale, isEncryptedExport, validateEncryptedEnvelope, EXERCISES, HOLD_EXERCISES, injuryAvoids, hasEquipment, equipmentScore, repRangeFor, swapMap, swapCandidates, applyPlanSwaps, estimatedOneRepMax, personalRecords, newRecords, FORM_FIGURES, formatRestTime, planEditsFor, setPlanEdit, applyPlanEdits };\n');
+  code + '\nreturn { clamp, round, safeNum, sortedWeights, currentWeight, weightProgress, workoutsLast7, sleepAverage, loggedDays, bmiFor, bmiCategory, weightTrendPerWeek, weightTrendCategory, calorieDrift, proteinGap, sleepDeficit, macroTargets, baseTargets, getInsights, validateOnboarding, validateCustomFood, gramsForPortion, foodEntryFromFood, validateImportData, recipeMatchScore, groceryItemsForRecipe, groceryMerge, groceryText, weekStart, loadDB, esc, escapeHTML, FOOD_DB, filterFoodItems, APP_VERSION, userUnits, kgToLb, lbToKg, cmToIn, inToCm, weightUnit, lengthUnit, displayWeight, displayLength, parseWeightInput, parseLengthInput, heightDisplay, planRationale, isEncryptedExport, validateEncryptedEnvelope, EXERCISES, HOLD_EXERCISES, injuryAvoids, hasEquipment, equipmentScore, repRangeFor, swapMap, swapCandidates, applyPlanSwaps, estimatedOneRepMax, personalRecords, newRecords, FORM_FIGURES, formatRestTime, planEditsFor, setPlanEdit, applyPlanEdits };\n');
 const L = factory(ACTIVITY_MULTIPLIERS, GOAL_LABELS, todayMock, dateOffsetMock, memoryStorage, 'trainer4u_db_v2', 2, () => 'test-food-id');
 
 function mkUser(over = {}) {
@@ -197,6 +197,28 @@ const match = L.recipeMatchScore(sampleRecipe, 'chicken, rice');
 eq('recipeMatchScore matches ingredients', match.matched.length, 2);
 eq('recipeMatchScore identifies missing', match.missing.length, 1);
 eq('recipeMatchScore empty input', L.recipeMatchScore(sampleRecipe, ''), null);
+
+// --- grocery list ---
+const groceryRecipe = { name: 'Test Curry', ingredients: [{ name: 'Chicken', qty: '200 g' }, { name: 'Onion', qty: '1' }, { name: '', qty: 'ignored' }] };
+const groceryItems = L.groceryItemsForRecipe(groceryRecipe);
+eq('groceryItemsForRecipe keeps named ingredients', groceryItems.length, 2);
+eq('groceryItemsForRecipe tags the recipe', groceryItems[0].recipe, 'Test Curry');
+check('groceryItemsForRecipe handles a bad recipe', L.groceryItemsForRecipe(null).length === 0 && L.groceryItemsForRecipe({}).length === 0);
+let gid = 0;
+const uidFn = () => `g${++gid}`;
+const merged = L.groceryMerge([], groceryItems, uidFn);
+eq('groceryMerge adds all items', merged.added, 2);
+eq('groceryMerge assigns ids', merged.list[0].id, 'g1');
+const mergedAgain = L.groceryMerge(merged.list, groceryItems, uidFn);
+eq('groceryMerge skips duplicates from the same recipe', mergedAgain.added, 0);
+eq('groceryMerge keeps the list unchanged on duplicates', mergedAgain.list.length, 2);
+const mergedOther = L.groceryMerge(merged.list, L.groceryItemsForRecipe({ name: 'Other Dish', ingredients: [{ name: 'Chicken', qty: '100 g' }] }), uidFn);
+eq('groceryMerge allows the same ingredient from another recipe', mergedOther.added, 1);
+const gtext = L.groceryText(merged.list);
+check('groceryText groups by recipe', gtext.includes('Test Curry:') && gtext.includes('- Chicken (200 g)'));
+const gtextChecked = L.groceryText([{ id: 'x', name: 'Chicken', qty: '200 g', recipe: 'Test Curry', checked: true }]);
+eq('groceryText omits bought items', gtextChecked, '');
+eq('groceryText empty list', L.groceryText([]), '');
 
 memoryStorage.setItem('trainer4u_db_v2', JSON.stringify({
   schemaVersion: 0,

@@ -20,7 +20,7 @@
 | **Dashboard** | Goal progress, today's plan, logging streak, key stats and coach's notes from the current profile. |
 | **Trainer** | Weekly gym or home plans with injury-aware exercise filtering, sets/reps/rest and progressive-overload hints. |
 | **Nutritionist** | Mifflin-St Jeor BMR/TDEE, reconciled calorie and macro targets, a filterable food database with Indian staples, custom foods with personal serving sizes, gram/100 g/ounce/serving logging and a seven-day summary. |
-| **Chef** | 60+ recipes with cuisine, diet, meal and allergy filters, plus ingredient matching and step-by-step cooking. |
+| **Chef** | 60+ recipes with cuisine, diet, meal and allergy filters, ingredient matching, step-by-step cooking and a grocery list built from any dish's ingredients. |
 | **Health check** | BMI, hydration, sleep, symptom notes, wellness guidance and safety warnings. |
 | **Progress** | Weight, measurement and weekly workout charts with history tables. |
 | **Course correction** | Notices missed workouts, calorie drift, wrong-way weight trends, low protein and poor sleep. |

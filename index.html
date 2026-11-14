@@ -10,7 +10,7 @@ Versions through commit c5b049e927cbf6f9edf84ab3bfba4a3482fd9e5c remain MIT-lice
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="description" content="Trainer4U — a private, local-only fitness coaching app for workouts, nutrition, recipes, wellness and progress.">
 <meta name="color-scheme" content="light dark">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-vD6DrdmWlftPmgBxxqzQHrCh7F13q/o8E4IgxCSDm/k='; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-QIIo4sb7Xpfnc3C6lZEFSaVWGw1YBXkq373ZD1h28iA='; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'">
 <meta name="theme-color" content="#0F172A">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="#0F172A">
@@ -375,6 +375,21 @@ select { appearance: none; background-image: linear-gradient(45deg, transparent 
 .rest-timer-chip.done .rest-timer-time { color: var(--good); }
 .rest-timer-label { font-size: .68rem; color: var(--muted); max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .rest-timer-actions { display: flex; gap: 6px; align-items: center; }
+/* Guided workout session */
+.session-count { font-size: .72rem; color: var(--muted); white-space: nowrap; }
+.session-progress-row { display: flex; align-items: center; gap: 10px; margin: 2px 0 12px; }
+.session-progress-row .progress { flex: 1; margin: 0; }
+.session-exercise { text-align: center; margin: 4px 0 6px; }
+.session-exercise h3 { font-size: 1.15rem; margin: 0 0 2px; }
+.session-target { font-size: .78rem; color: var(--muted); }
+.session-exercise .form-fig { margin: 10px auto 4px; }
+.session-exercise .cue-steps { text-align: left; }
+.session-sets { display: flex; justify-content: center; gap: 8px; margin: 14px 0 4px; }
+.session-set-dot { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; border: 2px solid var(--line); background: var(--panel-2); font-weight: 800; font-size: .8rem; color: var(--muted); }
+.session-set-dot.done { border-color: var(--good); background: var(--good); color: #fff; }
+.session-set-dot.now { border-color: var(--accent); color: var(--accent-ink); }
+.session-inputs { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 14px 0 4px; text-align: left; }
+.session-elapsed { font-size: .72rem; color: var(--muted); text-align: center; margin-top: 10px; }
 .tune-row { display: flex; align-items: center; gap: 8px; margin-top: 7px; }
 .sets-stepper { display: inline-flex; align-items: center; gap: 4px; }
 .sets-stepper .sets-count { font-size: .7rem; color: var(--muted); min-width: 40px; text-align: center; }
@@ -679,6 +694,8 @@ const state = {
   trainerMode: 'gym',
   chefIngredients: '',
   chefFilters: { cuisine: 'All', diet: 'All', meal: 'All' },
+  session: null,
+  workoutDraft: null,
   measure: 'waist'
 };
 
@@ -908,7 +925,7 @@ function toggleTheme() {
    --------------------------------------------------------------------------- */
 // <logic:start>
 // App build version. A test keeps this in sync with the service worker cache name.
-const APP_VERSION = '2026.11.14.3';
+const APP_VERSION = '2026.11.14.4';
 // <logic:end>
 
 // <logic:start>
@@ -4168,7 +4185,12 @@ function renderTrainer() {
           </div>
           ${!day.recovery && day.removed && day.removed.length ? `<div class="removed-row tiny muted">Removed: ${day.removed.map(name => `<button class="btn btn-xs btn-ghost" data-action="plan-edit-restore" data-day="${day.weekday}" data-name="${esc(name)}" aria-label="Restore ${esc(name)} to ${day.weekdayName}">↩ ${esc(name)}</button>`).join('')}</div>` : ''}
           ${day.finisher ? `<div class="tiny muted">Finisher: ${esc(day.finisher)}</div>` : ''}
-          <button class="btn btn-primary btn-sm" data-action="log-workout" data-day="${day.weekday}">${day.recovery ? 'Log recovery session' : 'Log workout'}</button>
+          <div class="btn-row" style="margin-top:4px">
+            ${!day.recovery ? (state.session && state.session.dayIndex === day.weekday
+              ? `<button class="btn btn-secondary btn-sm" data-action="session-resume">▶ Resume session (${(state.session.exerciseIdx || 0) + 1}/${day.exercises.length})</button>`
+              : `<button class="btn btn-secondary btn-sm" data-action="session-start" data-day="${day.weekday}">▶ Start session</button>`) : ''}
+            <button class="btn btn-primary btn-sm" data-action="log-workout" data-day="${day.weekday}">${day.recovery ? 'Log recovery session' : 'Log workout'}</button>
+          </div>
         </div>`;
       }).join('')}
     </div>
@@ -5105,6 +5127,7 @@ function renderModal() {
   if (!state.modal) { root.innerHTML = ''; app.removeAttribute('inert'); return; }
   if (state.modal.type === 'settings') root.innerHTML = settingsModalMarkup();
   else if (state.modal.type === 'workout') root.innerHTML = workoutModalMarkup();
+  else if (state.modal.type === 'session') root.innerHTML = sessionModalMarkup();
   else if (state.modal.type === 'recipe') root.innerHTML = recipeModalMarkup();
   else if (state.modal.type === 'custom-food') root.innerHTML = customFoodModalMarkup();
   else if (state.modal.type === 'backup-password') root.innerHTML = backupPasswordModalMarkup();
@@ -5288,6 +5311,38 @@ function newRecords(user, workoutId) {
 }
 // <logic:end>
 
+// <logic:start>
+/* Guided workout session: pure state transitions, unit-tested.
+   Session shape: { dayIndex, exerciseIdx, setsDone, startedAt, entries }. */
+function sessionSetDone(session, day) {
+  const exercises = (day && day.exercises) || [];
+  const current = exercises[session.exerciseIdx];
+  if (!current) return { session, advanced: false, restSeconds: 0, finished: true };
+  const next = Object.assign({}, session);
+  next.setsDone = (session.setsDone || 0) + 1;
+  if (next.setsDone < (Number(current.sets) || 1)) {
+    return { session: next, advanced: false, restSeconds: Number(current.rest) || 0, finished: false };
+  }
+  if (session.exerciseIdx + 1 >= exercises.length) {
+    return { session: next, advanced: false, restSeconds: 0, finished: true };
+  }
+  next.exerciseIdx = session.exerciseIdx + 1;
+  next.setsDone = 0;
+  return { session: next, advanced: true, restSeconds: Number(current.rest) || 0, finished: false };
+}
+function workoutDraftFromSession(session, day, now) {
+  const started = Number(session && session.startedAt) || 0;
+  const end = Number(now) || 0;
+  const elapsed = end - started;
+  const minutes = elapsed > 0 ? Math.min(240, Math.max(5, Math.round(elapsed / 60000))) : 45;
+  return {
+    day: day ? day.weekday : 0,
+    duration: minutes,
+    entries: session && Array.isArray(session.entries) ? session.entries : []
+  };
+}
+// <logic:end>
+
 function lastExerciseLog(user, name) {
   const workouts = [...user.logs.workouts].sort((a, b) => a.date.localeCompare(b.date));
   for (let i = workouts.length - 1; i >= 0; i--) {
@@ -5297,12 +5352,103 @@ function lastExerciseLog(user, name) {
   return null;
 }
 
+function sessionModalMarkup() {
+  const u = state.user;
+  const units = userUnits(u);
+  const session = state.session;
+  const plan = buildPlan(u);
+  const day = plan.schedule[state.modal.dayIndex];
+  if (!day || day.rest || !session) return '';
+  const idx = clamp(session.exerciseIdx || 0, 0, day.exercises.length - 1);
+  const ex = day.exercises[idx];
+  if (!ex) return '';
+  const ref = EXERCISES.find(item => item.name === ex.name) || {};
+  const guide = ref.fig && FORM_FIGURES[ref.fig] ? FORM_FIGURES[ref.fig] : '';
+  const stepsList = ref.steps ? `<ol class="cue-steps">${ref.steps.map(step => `<li>${esc(step)}</li>`).join('')}</ol>` : '';
+  const last = lastExerciseLog(u, ex.name);
+  const entry = (session.entries || [])[idx] || null;
+  const topReps = parseInt(String(ex.reps).split(/[–-]/).pop(), 10) || 12;
+  const elapsed = Math.max(0, Math.round((Date.now() - (session.startedAt || Date.now())) / 60000));
+  const sets = Math.max(1, Number(ex.sets) || 1);
+  const done = Math.min(session.setsDone || 0, sets);
+  const isLastExercise = idx === day.exercises.length - 1;
+  const finalSet = done + 1 >= sets;
+  const actionLabel = finalSet
+    ? (isLastExercise ? '✓ Finish workout' : `✓ Last set - on to ${esc(day.exercises[idx + 1].name)}`)
+    : `✓ Set ${done + 1} done${ex.rest ? ` - rest ${ex.rest}s` : ''}`;
+  const progressPct = Math.round(((idx + done / sets) / day.exercises.length) * 100);
+
+  return `
+    <div class="modal-overlay" data-action="session-minimize">
+      <div class="modal" role="dialog" aria-modal="true" aria-label="Guided workout session">
+        <div class="modal-head">
+          <div>
+            <h2>${esc(day.label)}</h2>
+            <p class="small muted">Exercise ${idx + 1} of ${day.exercises.length}</p>
+          </div>
+          <button class="icon-btn close" data-action="session-minimize" aria-label="Minimize session">−</button>
+        </div>
+        <div class="session-progress-row">
+          <div class="progress"><span style="width:${progressPct}%"></span></div>
+          <span class="session-count">${progressPct}%</span>
+        </div>
+        <div class="session-exercise">
+          <h3>${esc(ex.name)}</h3>
+          <div class="session-target">${sets} sets × ${esc(ex.reps)}${last && last.weight ? ` · last time ${displayWeight(last.weight, units)} ${weightUnit(units)} × ${last.reps}` : ''}</div>
+          ${guide}
+          <details class="exercise-cues" style="text-align:left"><summary>Form steps</summary>${stepsList || esc(ex.cues || '')}</details>
+        </div>
+        <div class="session-sets" role="group" aria-label="Sets completed">
+          ${Array.from({ length: sets }, (_, s) => `<span class="session-set-dot${s < done ? ' done' : s === done ? ' now' : ''}">${s < done ? '✓' : s + 1}</span>`).join('')}
+        </div>
+        <div class="session-inputs">
+          <div class="field"><label for="session-w">Weight (${weightUnit(units)}, 0 for bodyweight)</label><input id="session-w" type="number" name="session-w" min="0" max="${units === 'imperial' ? '1100' : '500'}" step="0.5" value="${entry ? esc(entry.weight) : last && last.weight ? displayWeight(last.weight, units) : ''}" placeholder="0"></div>
+          <div class="field"><label for="session-r">Reps</label><input id="session-r" type="number" name="session-r" min="0" max="100" step="1" value="${entry ? esc(entry.reps) : last?.reps || topReps}"></div>
+        </div>
+        <div class="btn-row" style="margin-top:10px">
+          <button class="btn btn-primary" data-action="session-set-done" style="flex:1">${actionLabel}</button>
+        </div>
+        <div class="btn-row" style="margin-top:8px">
+          <button class="btn btn-ghost btn-sm" data-action="session-back" ${done === 0 && idx === 0 ? 'disabled' : ''}>← Back</button>
+          ${!isLastExercise ? '<button class="btn btn-ghost btn-sm" data-action="session-skip">Skip exercise</button>' : ''}
+          <button class="btn btn-ghost btn-sm" data-action="session-end">End &amp; log</button>
+        </div>
+        <p class="session-elapsed">${elapsed < 1 ? 'Just started' : `${elapsed} min in`} · the rest timer starts itself between sets</p>
+      </div>
+    </div>`;
+}
+
+function captureSessionEntry() {
+  const session = state.session;
+  if (!session) return;
+  const modal = $('.modal');
+  const wInput = modal && modal.querySelector('[name="session-w"]');
+  const rInput = modal && modal.querySelector('[name="session-r"]');
+  session.entries[session.exerciseIdx] = {
+    weight: wInput ? wInput.value : '',
+    reps: rInput ? rInput.value : ''
+  };
+}
+
+function finishWorkoutSession() {
+  const u = state.user;
+  const plan = buildPlan(u);
+  const day = plan.schedule[state.session.dayIndex];
+  captureSessionEntry();
+  dismissRestTimer();
+  state.workoutDraft = workoutDraftFromSession(state.session, day, Date.now());
+  state.session = null;
+  openModal({ type: 'workout', dayIndex: day.weekday });
+  toast('Session complete - check the numbers and save your log.');
+}
+
 function workoutModalMarkup() {
   const u = state.user;
   const units = userUnits(u);
   const recordsByName = new Map(personalRecords(u).map(record => [record.name, record]));
   const plan = buildPlan(u);
   const day = plan.schedule[state.modal.dayIndex];
+  const draft = state.workoutDraft && day && state.workoutDraft.day === day.weekday ? state.workoutDraft : null;
   if (!day || day.rest) {
     return `<div class="modal-overlay" data-action="close-modal"><div class="modal" role="dialog" aria-modal="true">
       <div class="modal-head"><h2>Rest day</h2><button class="icon-btn" data-action="close-modal" aria-label="Close rest day">✕</button></div>
@@ -5312,12 +5458,13 @@ function workoutModalMarkup() {
   }
   const rows = day.exercises.map((exercise, index) => {
     const last = lastExerciseLog(u, exercise.name);
+    const draftEntry = draft ? (draft.entries || [])[index] : null;
     const topReps = parseInt(String(exercise.reps).split(/[–-]/).pop(), 10) || 12;
     return `
       <div class="log-row">
         <div class="log-ex">${esc(exercise.name)}<small>${exercise.sets} sets · target ${esc(exercise.reps)}${recordsByName.has(exercise.name) ? ` · best ${displayWeight(recordsByName.get(exercise.name).weight, units)} ${weightUnit(units)} × ${recordsByName.get(exercise.name).reps}` : ''}</small></div>
-        <input type="number" name="w${index}" min="0" max="${units === 'imperial' ? '1100' : '500'}" step="0.5" placeholder="${weightUnit(units)}" value="${last && last.weight ? displayWeight(last.weight, units) : ''}" aria-label="${esc(exercise.name)} weight">
-        <input type="number" name="r${index}" min="0" max="100" step="1" placeholder="reps" value="${last?.reps || topReps}" aria-label="${esc(exercise.name)} reps">
+        <input type="number" name="w${index}" min="0" max="${units === 'imperial' ? '1100' : '500'}" step="0.5" placeholder="${weightUnit(units)}" value="${draftEntry ? esc(draftEntry.weight) : last && last.weight ? displayWeight(last.weight, units) : ''}" aria-label="${esc(exercise.name)} weight">
+        <input type="number" name="r${index}" min="0" max="100" step="1" placeholder="reps" value="${draftEntry && draftEntry.reps !== '' ? esc(draftEntry.reps) : last?.reps || topReps}" aria-label="${esc(exercise.name)} reps">
       </div>`;
   }).join('');
 
@@ -5327,14 +5474,14 @@ function workoutModalMarkup() {
         <div class="modal-head">
           <div>
             <h2>Log ${esc(day.label)}</h2>
-            <p class="small muted">${esc(day.focus)} · ${day.exercises.length} exercises. Enter your working weight and reps.</p>
+            <p class="small muted">${esc(day.focus)} · ${day.exercises.length} exercises. ${draft ? 'Prefilled from your guided session - check the numbers and save.' : 'Enter your working weight and reps.'}</p>
           </div>
           <button class="icon-btn close" data-action="close-modal" aria-label="Close">✕</button>
         </div>
         <form data-form="log-workout" data-day="${day.weekday}">
           <div class="form-grid">
             <div class="field"><label for="workout-date">Date</label><input id="workout-date" type="date" name="date" value="${today()}" max="${today()}" required></div>
-            <div class="field"><label for="workout-duration">Duration (minutes)</label><input id="workout-duration" type="number" name="duration" min="5" max="240" value="45" required></div>
+            <div class="field"><label for="workout-duration">Duration (minutes)</label><input id="workout-duration" type="number" name="duration" min="5" max="240" value="${draft ? draft.duration : 45}" required></div>
           </div>
           <div class="log-head"><span>Exercise</span><span>Weight ${weightUnit(units)}</span><span>Reps</span></div>
           ${rows}
@@ -6174,6 +6321,90 @@ document.addEventListener('click', event => {
       break;
     }
 
+    case 'session-start': {
+      if (!u) break;
+      const dayIndex = Number(trigger.dataset.day);
+      const plan = buildPlan(u);
+      const day = plan.schedule[dayIndex];
+      if (!day || day.rest || !day.exercises.length) break;
+      if (state.session && state.session.dayIndex !== dayIndex && !confirm('Abandon the session already in progress?')) break;
+      state.session = { dayIndex, exerciseIdx: 0, setsDone: 0, startedAt: Date.now(), entries: [] };
+      openModal({ type: 'session', dayIndex });
+      break;
+    }
+
+    case 'session-resume':
+      if (!u || !state.session) break;
+      openModal({ type: 'session', dayIndex: state.session.dayIndex });
+      break;
+
+    case 'session-minimize':
+      // Keep the session alive; the day card offers Resume.
+      if (trigger.classList.contains('modal-overlay') && event.target !== trigger) break;
+      closeModal();
+      renderApp();
+      break;
+
+    case 'session-set-done': {
+      if (!u || !state.session) break;
+      const plan = buildPlan(u);
+      const day = plan.schedule[state.session.dayIndex];
+      if (!day) break;
+      const currentIdx = state.session.exerciseIdx;
+      const currentName = (day.exercises[currentIdx] || {}).name || '';
+      captureSessionEntry();
+      const outcome = sessionSetDone(state.session, day);
+      state.session = outcome.session;
+      if (outcome.finished) {
+        finishWorkoutSession();
+      } else {
+        if (outcome.restSeconds) {
+          const nextName = outcome.advanced ? ((day.exercises[state.session.exerciseIdx] || {}).name || '') : currentName;
+          startRestTimer(outcome.restSeconds, outcome.advanced ? `next: ${nextName}` : nextName);
+        }
+        renderModal();
+      }
+      break;
+    }
+
+    case 'session-skip': {
+      if (!u || !state.session) break;
+      const plan = buildPlan(u);
+      const day = plan.schedule[state.session.dayIndex];
+      if (!day) break;
+      state.session.entries[state.session.exerciseIdx] = null;
+      if (state.session.exerciseIdx + 1 >= day.exercises.length) {
+        finishWorkoutSession();
+      } else {
+        state.session.exerciseIdx += 1;
+        state.session.setsDone = 0;
+        renderModal();
+      }
+      break;
+    }
+
+    case 'session-back':
+      if (!u || !state.session) break;
+      captureSessionEntry();
+      if (state.session.setsDone > 0) state.session.setsDone -= 1;
+      else if (state.session.exerciseIdx > 0) {
+        state.session.exerciseIdx -= 1;
+        const plan = buildPlan(u);
+        const day = plan.schedule[state.session.dayIndex];
+        const prev = day && day.exercises[state.session.exerciseIdx];
+        state.session.setsDone = 0;
+        if (prev) state.session.entries[state.session.exerciseIdx] = state.session.entries[state.session.exerciseIdx] || null;
+      }
+      renderModal();
+      break;
+
+    case 'session-end': {
+      if (!u || !state.session) break;
+      if (!confirm('End the session now? What you logged so far will prefill the workout log.')) break;
+      finishWorkoutSession();
+      break;
+    }
+
     case 'recipe-open':
       openModal({ type: 'recipe', index: Number(trigger.dataset.index), step: 0 });
       break;
@@ -6508,6 +6739,7 @@ document.addEventListener('submit', async event => {
         exercises
       });
       const recordsHit = newRecords(u, workoutId);
+      state.workoutDraft = null;
       saveUser();
       closeModal();
       renderApp();

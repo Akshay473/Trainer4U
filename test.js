@@ -45,7 +45,7 @@ const memoryStorage = (() => {
   return { getItem: key => values.has(key) ? values.get(key) : null, setItem: (key, value) => values.set(key, String(value)) };
 })();
 const factory = new Function('ACTIVITY_MULTIPLIERS', 'GOAL_LABELS', 'today', 'dateOffset', 'localStorage', 'DB_KEY', 'SCHEMA_VERSION', 'uid',
-  code + '\nreturn { clamp, round, safeNum, sortedWeights, currentWeight, weightProgress, workoutsLast7, sleepAverage, loggedDays, bmiFor, bmiCategory, weightTrendPerWeek, weightTrendCategory, calorieDrift, proteinGap, sleepDeficit, macroTargets, baseTargets, getInsights, validateOnboarding, validateCustomFood, gramsForPortion, foodEntryFromFood, validateImportData, recipeMatchScore, groceryItemsForRecipe, groceryMerge, groceryText, weekStart, loadDB, esc, escapeHTML, FOOD_DB, filterFoodItems, APP_VERSION, userUnits, kgToLb, lbToKg, cmToIn, inToCm, weightUnit, lengthUnit, displayWeight, displayLength, parseWeightInput, parseLengthInput, heightDisplay, planRationale, isEncryptedExport, validateEncryptedEnvelope, EXERCISES, HOLD_EXERCISES, injuryAvoids, hasEquipment, equipmentScore, repRangeFor, swapMap, swapCandidates, applyPlanSwaps, estimatedOneRepMax, personalRecords, newRecords, FORM_FIGURES, formatRestTime, planEditsFor, setPlanEdit, applyPlanEdits };\n');
+  code + '\nreturn { clamp, round, safeNum, sortedWeights, currentWeight, weightProgress, workoutsLast7, sleepAverage, loggedDays, bmiFor, bmiCategory, weightTrendPerWeek, weightTrendCategory, calorieDrift, proteinGap, sleepDeficit, macroTargets, baseTargets, getInsights, validateOnboarding, validateCustomFood, gramsForPortion, foodEntryFromFood, validateImportData, recipeMatchScore, groceryItemsForRecipe, groceryMerge, groceryText, weekStart, loadDB, esc, escapeHTML, FOOD_DB, filterFoodItems, APP_VERSION, userUnits, kgToLb, lbToKg, cmToIn, inToCm, weightUnit, lengthUnit, displayWeight, displayLength, parseWeightInput, parseLengthInput, heightDisplay, planRationale, isEncryptedExport, validateEncryptedEnvelope, EXERCISES, HOLD_EXERCISES, injuryAvoids, hasEquipment, equipmentScore, repRangeFor, swapMap, swapCandidates, applyPlanSwaps, sessionSetDone, workoutDraftFromSession, estimatedOneRepMax, personalRecords, newRecords, FORM_FIGURES, formatRestTime, planEditsFor, setPlanEdit, applyPlanEdits };\n');
 const L = factory(ACTIVITY_MULTIPLIERS, GOAL_LABELS, todayMock, dateOffsetMock, memoryStorage, 'trainer4u_db_v2', 2, () => 'test-food-id');
 
 function mkUser(over = {}) {
@@ -219,6 +219,34 @@ check('groceryText groups by recipe', gtext.includes('Test Curry:') && gtext.inc
 const gtextChecked = L.groceryText([{ id: 'x', name: 'Chicken', qty: '200 g', recipe: 'Test Curry', checked: true }]);
 eq('groceryText omits bought items', gtextChecked, '');
 eq('groceryText empty list', L.groceryText([]), '');
+
+// --- guided workout session ---
+const sessionDay = { weekday: 1, exercises: [
+  { name: 'Squat', sets: 2, reps: '8-10', rest: 90 },
+  { name: 'Push-up', sets: 2, reps: '10-12', rest: 60 }
+] };
+let sess = { dayIndex: 1, exerciseIdx: 0, setsDone: 0, startedAt: 1000000, entries: [] };
+let out = L.sessionSetDone(sess, sessionDay);
+eq('session: first set done counts up', out.session.setsDone, 1);
+eq('session: mid-exercise rest offered', out.restSeconds, 90);
+check('session: not advanced mid-exercise', !out.advanced && !out.finished);
+out = L.sessionSetDone(out.session, sessionDay);
+check('session: last set advances', out.advanced && !out.finished);
+eq('session: advance resets set count', out.session.setsDone, 0);
+eq('session: advance moves to next exercise', out.session.exerciseIdx, 1);
+eq('session: rest carries into the next exercise', out.restSeconds, 90);
+out = L.sessionSetDone(out.session, sessionDay);
+out = L.sessionSetDone(out.session, sessionDay);
+check('session: final set finishes', out.finished && !out.advanced);
+eq('session: no rest after the final set', out.restSeconds, 0);
+const badDay = L.sessionSetDone({ dayIndex: 0, exerciseIdx: 3, setsDone: 0, entries: [] }, sessionDay);
+check('session: out-of-range index finishes safely', badDay.finished);
+const draftOut = L.workoutDraftFromSession({ startedAt: 0, entries: [{ weight: '20', reps: '10' }] }, { weekday: 2 }, 30 * 60000);
+eq('session: draft duration from elapsed time', draftOut.duration, 30);
+eq('session: draft targets the trained day', draftOut.day, 2);
+eq('session: draft carries entries', draftOut.entries.length, 1);
+check('session: very short sessions floor at 5 minutes', L.workoutDraftFromSession({ startedAt: 0, entries: [] }, { weekday: 2 }, 60000).duration === 5);
+check('session: missing times fall back to 45', L.workoutDraftFromSession({}, { weekday: 2 }, 0).duration === 45);
 
 memoryStorage.setItem('trainer4u_db_v2', JSON.stringify({
   schemaVersion: 0,

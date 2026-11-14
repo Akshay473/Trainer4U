@@ -10,7 +10,7 @@ Versions through commit c5b049e927cbf6f9edf84ab3bfba4a3482fd9e5c remain MIT-lice
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="description" content="Trainer4U — a private, local-only fitness coaching app for workouts, nutrition, recipes, wellness and progress.">
 <meta name="color-scheme" content="light dark">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-rsv5ukbDlHrx90/R86Lk1mqdv7/bxMJodWZaEoGJXCY='; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-mxSTPnRfXqBrbhAI2NFibcqoM9P6MWG5oRvIPpmQMjw='; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'">
 <meta name="theme-color" content="#0F172A">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="#0F172A">
@@ -375,6 +375,10 @@ select { appearance: none; background-image: linear-gradient(45deg, transparent 
 .rest-timer-chip.done .rest-timer-time { color: var(--good); }
 .rest-timer-label { font-size: .68rem; color: var(--muted); max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .rest-timer-actions { display: flex; gap: 6px; align-items: center; }
+.tune-row { display: flex; align-items: center; gap: 8px; margin-top: 7px; }
+.sets-stepper { display: inline-flex; align-items: center; gap: 4px; }
+.sets-stepper .sets-count { font-size: .7rem; color: var(--muted); min-width: 40px; text-align: center; }
+.removed-row { margin-top: 8px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 /* Form figures: inline SVG start/end position guides (no external assets) */
 .form-fig { display: block; width: 100%; max-width: 240px; height: auto; margin: 8px 0 4px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; }
 .form-fig .ground { stroke: var(--muted); stroke-width: 2; opacity: .5; }
@@ -897,7 +901,7 @@ function toggleTheme() {
    --------------------------------------------------------------------------- */
 // <logic:start>
 // App build version. A test keeps this in sync with the service worker cache name.
-const APP_VERSION = '2026.11.13.12';
+const APP_VERSION = '2026.11.14.1';
 // <logic:end>
 
 // <logic:start>
@@ -3778,6 +3782,54 @@ function applyPlanSwaps(user, plan) {
   });
   return plan;
 }
+
+/* Plan tuning: the user's own per-exercise adjustments. Like swaps, edits are
+   stored per training mode and weekday and key on the exercise name shown in
+   the plan (after swaps). An edit that no longer matches a planned exercise is
+   ignored, so plan regeneration or a later swap never strands one. */
+function planEditsFor(user, mode, weekday) {
+  const all = user && user.planEdits;
+  const byMode = all && typeof all === 'object' ? all[mode] : null;
+  const byDay = byMode && typeof byMode === 'object' ? byMode[weekday] : null;
+  return byDay && typeof byDay === 'object' ? byDay : {};
+}
+
+// Merge a patch into one exercise's edit, pruning empty containers so stored
+// data stays minimal. patch.off === false clears a removal.
+function setPlanEdit(user, mode, weekday, name, patch) {
+  if (!user.planEdits || typeof user.planEdits !== 'object') user.planEdits = {};
+  if (!user.planEdits[mode] || typeof user.planEdits[mode] !== 'object') user.planEdits[mode] = {};
+  const dayMap = { ...(user.planEdits[mode][weekday] || {}) };
+  const edit = { ...(dayMap[name] || {}), ...patch };
+  if (edit.off === false) delete edit.off;
+  if (edit.sets !== undefined && !Number.isFinite(edit.sets)) delete edit.sets;
+  if (Object.keys(edit).length) dayMap[name] = edit;
+  else delete dayMap[name];
+  if (Object.keys(dayMap).length) user.planEdits[mode][weekday] = dayMap;
+  else delete user.planEdits[mode][weekday];
+}
+
+// Apply stored edits to a freshly built (and swapped) plan: drop removed
+// exercises, clamp custom set counts to 1-6, and record what was removed so
+// the UI can offer a one-tap restore. Returns the same plan for chaining.
+function applyPlanEdits(user, plan) {
+  plan.schedule.forEach(day => {
+    if (day.rest || day.recovery) return;
+    const edits = planEditsFor(user, plan.mode, day.weekday);
+    if (!Object.keys(edits).length) { day.removed = []; return; }
+    const removed = [];
+    day.exercises = day.exercises.filter(ex => {
+      if (edits[ex.name] && edits[ex.name].off) { removed.push(ex.name); return false; }
+      return true;
+    });
+    day.exercises.forEach(ex => {
+      const edit = edits[ex.name];
+      if (edit && Number.isFinite(edit.sets)) ex.sets = Math.min(6, Math.max(1, Math.round(edit.sets)));
+    });
+    day.removed = removed;
+  });
+  return plan;
+}
 // <logic:end>
 
 function planMode() {
@@ -3971,7 +4023,7 @@ function buildPlan(user) {
 
   const trainingDays = templates.filter(template => !template.recovery).length;
   const plan = { days, trainingDays, schedule, adjustments: insights.adjustments, mode, injuries: p.injuries || '' };
-  return applyPlanSwaps(user, plan);
+  return applyPlanEdits(user, applyPlanSwaps(user, plan));
 }
 
 function renderTrainer() {
@@ -4066,9 +4118,18 @@ function renderTrainer() {
                 ${hint ? `<div class="overload">${esc(hint)}</div>` : ''}
                 ${day.recovery ? '' : `<button class="btn btn-xs btn-ghost swap-btn" data-action="swap-exercise" data-day="${day.weekday}" data-name="${esc(ex.name)}" aria-label="Swap ${esc(ex.name)} for a similar exercise" title="Try a different exercise for this slot">⇄ Swap</button>`}
                 ${!day.recovery && ex.rest ? `<button class="btn btn-xs btn-ghost rest-btn" data-action="rest-timer" data-seconds="${ex.rest}" data-name="${esc(ex.name)}" aria-label="Start a ${ex.rest} second rest timer for ${esc(ex.name)}" title="Start the rest timer for this exercise">⏱ Rest</button>` : ''}
+                ${day.recovery ? '' : `<div class="tune-row">
+                  <span class="sets-stepper" role="group" aria-label="Adjust sets for ${esc(ex.name)}">
+                    <button class="btn btn-xs btn-ghost" data-action="plan-edit-sets" data-day="${day.weekday}" data-name="${esc(ex.name)}" data-dir="-1" aria-label="One fewer set of ${esc(ex.name)}" ${ex.sets <= 1 ? 'disabled' : ''}>−</button>
+                    <span class="sets-count">${ex.sets} set${ex.sets === 1 ? '' : 's'}</span>
+                    <button class="btn btn-xs btn-ghost" data-action="plan-edit-sets" data-day="${day.weekday}" data-name="${esc(ex.name)}" data-dir="1" aria-label="One more set of ${esc(ex.name)}" ${ex.sets >= 6 ? 'disabled' : ''}>+</button>
+                  </span>
+                  <button class="btn btn-xs btn-ghost" data-action="plan-edit-remove" data-day="${day.weekday}" data-name="${esc(ex.name)}" aria-label="Remove ${esc(ex.name)} from ${day.weekdayName}" title="Remove from this day - you can restore it below">✕</button>
+                </div>`}
               </div>`;
             }).join('')}
           </div>
+          ${!day.recovery && day.removed && day.removed.length ? `<div class="removed-row tiny muted">Removed: ${day.removed.map(name => `<button class="btn btn-xs btn-ghost" data-action="plan-edit-restore" data-day="${day.weekday}" data-name="${esc(name)}" aria-label="Restore ${esc(name)} to ${day.weekdayName}">↩ ${esc(name)}</button>`).join('')}</div>` : ''}
           ${day.finisher ? `<div class="tiny muted">Finisher: ${esc(day.finisher)}</div>` : ''}
           <button class="btn btn-primary btn-sm" data-action="log-workout" data-day="${day.weekday}">${day.recovery ? 'Log recovery session' : 'Log workout'}</button>
         </div>`;
@@ -5874,6 +5935,43 @@ document.addEventListener('click', event => {
       saveUser();
       renderApp();
       toast(nextName === originalName ? `${originalName} is back in the plan.` : `Swapped ${shownName} for ${nextName}. Tap Swap again for another option.`);
+      break;
+    }
+
+    case 'plan-edit-sets': {
+      if (!u) break;
+      const tunePlan = buildPlan(u);
+      const tuneDay = tunePlan.schedule.find(day => day.weekday === Number(trigger.dataset.day));
+      const tuneEx = tuneDay && tuneDay.exercises.find(ex => ex.name === trigger.dataset.name);
+      if (!tuneEx) break;
+      const nextSets = Math.min(6, Math.max(1, tuneEx.sets + Number(trigger.dataset.dir || 0)));
+      if (nextSets === tuneEx.sets) break;
+      setPlanEdit(u, tunePlan.mode, tuneDay.weekday, tuneEx.name, { sets: nextSets });
+      saveUser();
+      renderApp();
+      toast(`${tuneEx.name}: ${nextSets} set${nextSets === 1 ? '' : 's'} on ${tuneDay.weekdayName}.`);
+      break;
+    }
+
+    case 'plan-edit-remove': {
+      if (!u) break;
+      const rmPlan = buildPlan(u);
+      const rmDay = rmPlan.schedule.find(day => day.weekday === Number(trigger.dataset.day));
+      if (!rmDay || !rmDay.exercises.some(ex => ex.name === trigger.dataset.name)) break;
+      setPlanEdit(u, rmPlan.mode, rmDay.weekday, trigger.dataset.name, { off: true });
+      saveUser();
+      renderApp();
+      toast(`Removed ${trigger.dataset.name} from ${rmDay.weekdayName}. Tap the restore row to bring it back.`);
+      break;
+    }
+
+    case 'plan-edit-restore': {
+      if (!u) break;
+      const rsPlan = buildPlan(u);
+      setPlanEdit(u, rsPlan.mode, Number(trigger.dataset.day), trigger.dataset.name, { off: false });
+      saveUser();
+      renderApp();
+      toast(`${trigger.dataset.name} is back in the plan.`);
       break;
     }
 

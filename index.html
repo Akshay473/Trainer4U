@@ -10,7 +10,7 @@ Versions through commit c5b049e927cbf6f9edf84ab3bfba4a3482fd9e5c remain MIT-lice
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="description" content="Trainer4U — a private, local-only fitness coaching app for workouts, nutrition, recipes, wellness and progress.">
 <meta name="color-scheme" content="light dark">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-kaV67SXUYkzKyYF93kgm3xpP4lV2yf2EQ+rjgoUxgRQ='; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-vD6DrdmWlftPmgBxxqzQHrCh7F13q/o8E4IgxCSDm/k='; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'">
 <meta name="theme-color" content="#0F172A">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="#0F172A">
@@ -388,6 +388,13 @@ select { appearance: none; background-image: linear-gradient(45deg, transparent 
 .form-fig .bench { fill: var(--muted); opacity: .45; }
 .cue-steps { margin: 6px 0 2px; padding-left: 18px; color: var(--muted); font-size: .74rem; line-height: 1.45; }
 .cue-steps li { margin: 3px 0; }
+.grocery-group { font-size: .7rem; text-transform: uppercase; letter-spacing: .08em; color: var(--accent-ink); font-weight: 800; margin: 12px 0 2px; }
+.grocery-row { display: flex; align-items: center; gap: 10px; padding: 7px 0; border-bottom: 1px dashed var(--line); }
+.grocery-row:last-child { border-bottom: 0; }
+.grocery-row input[type="checkbox"] { width: 17px; height: 17px; accent-color: var(--accent); flex: 0 0 auto; margin: 0; }
+.grocery-row.done .grocery-name { text-decoration: line-through; color: var(--muted); }
+.grocery-name { font-weight: 650; font-size: .84rem; }
+.grocery-meta { font-size: .7rem; color: var(--muted); margin-top: 1px; }
 .overload { font-size: .7rem; color: var(--accent-ink); font-weight: 650; margin-top: 5px; }
 .history-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 9px 0; border-bottom: 1px dashed var(--line); }
 .history-row:last-child { border-bottom: 0; }
@@ -901,7 +908,7 @@ function toggleTheme() {
    --------------------------------------------------------------------------- */
 // <logic:start>
 // App build version. A test keeps this in sync with the service worker cache name.
-const APP_VERSION = '2026.11.14.2';
+const APP_VERSION = '2026.11.14.3';
 // <logic:end>
 
 // <logic:start>
@@ -4396,6 +4403,40 @@ function recipeMatchScore(recipe, rawIngredients) {
 }
 // <logic:end>
 
+// <logic:start>
+function groceryItemsForRecipe(recipe) {
+  if (!recipe || !Array.isArray(recipe.ingredients)) return [];
+  return recipe.ingredients.map(item => ({
+    name: String(item.name || '').trim(),
+    qty: String(item.qty || '').trim(),
+    recipe: String(recipe.name || '').trim()
+  })).filter(item => item.name);
+}
+function groceryMerge(list, items, uidFn) {
+  const next = Array.isArray(list) ? list.slice() : [];
+  const seen = new Set(next.map(entry => `${String(entry.name || '').toLowerCase()}|${String(entry.recipe || '').toLowerCase()}`));
+  let added = 0;
+  (Array.isArray(items) ? items : []).forEach(item => {
+    const key = `${String(item.name || '').toLowerCase()}|${String(item.recipe || '').toLowerCase()}`;
+    if (!item.name || seen.has(key)) return;
+    seen.add(key);
+    next.push({ id: uidFn(), name: item.name, qty: item.qty || '', recipe: item.recipe || '', checked: false });
+    added += 1;
+  });
+  return { list: next, added };
+}
+function groceryText(list) {
+  const items = (Array.isArray(list) ? list : []).filter(entry => entry && entry.name && !entry.checked);
+  const groups = [];
+  items.forEach(entry => {
+    let group = groups.find(g => g.recipe === entry.recipe);
+    if (!group) { group = { recipe: entry.recipe || 'Other', items: [] }; groups.push(group); }
+    group.items.push(entry);
+  });
+  return groups.map(group => `${group.recipe}:\n${group.items.map(entry => `- ${entry.name}${entry.qty ? ` (${entry.qty})` : ''}`).join('\n')}`).join('\n\n');
+}
+// <logic:end>
+
 /* ---------- Chef ---------- */
 function renderChef() {
   const u = state.user;
@@ -4423,6 +4464,14 @@ function renderChef() {
     filters.diet !== 'All' ? (DIET_FILTERS.find(([value]) => value === filters.diet) || [])[1] : '',
     filters.meal !== 'All' ? filters.meal : ''
   ].filter(Boolean);
+  const grocery = Array.isArray(u.groceryList) ? u.groceryList : [];
+  const groceryOpen = grocery.filter(entry => !entry.checked);
+  const groceryGroups = [];
+  grocery.forEach(entry => {
+    let group = groceryGroups.find(g => g.recipe === entry.recipe);
+    if (!group) { group = { recipe: entry.recipe, items: [] }; groceryGroups.push(group); }
+    group.items.push(entry);
+  });
   const matchResults = state.chefIngredients
     ? safeRecipes.map(recipe => ({ recipe, match: recipeMatchScore(recipe, state.chefIngredients) }))
       .filter(item => item.match && item.match.matched.length > 0)
@@ -4434,7 +4483,7 @@ function renderChef() {
     <div class="section-head">
       <div>
         <h1>Chef</h1>
-        <p class="sub">${RECIPES.length} dishes across ${CUISINES.length - 1} cuisines. Filter by cuisine, diet and meal type, or cook with what you already have. Every recipe shows calories, macros, prep time, ingredients and step-by-step instructions.</p>
+        <p class="sub">${RECIPES.length} dishes across ${CUISINES.length - 1} cuisines. Filter by cuisine, diet and meal type, or cook with what you already have. Save any dish's ingredients to your grocery list. Every recipe shows calories, macros, prep time, ingredients and step-by-step instructions.</p>
       </div>
       <span class="pill accent">${safeRecipes.length} safe recipes</span>
     </div>
@@ -4539,10 +4588,29 @@ function renderChef() {
           <div class="recipe-ing">${recipe.ingredients.slice(0, 4).map(item => `${esc(item.name)} ${esc(item.qty)}`).join(' · ')}</div>
           <div class="recipe-actions">
             <button class="btn btn-sm btn-primary" data-action="recipe-open" data-index="${idx}">Cook step by step</button>
+            <button class="btn btn-sm btn-soft" data-action="recipe-grocery-add" data-index="${idx}" aria-label="Add ${esc(recipe.name)} ingredients to your grocery list">+ Grocery list</button>
           </div>
         </div>`;
       }).join('')}
       ${suggestions.length ? '' : '<div class="card"><div class="empty">No recipes match those filters. Try clearing one filter or widening your search.</div></div>'}
+    </div>
+
+    <div class="card">
+      <div class="card-head"><h2>Grocery list</h2><span class="pill">${groceryOpen.length ? `${groceryOpen.length} to buy` : 'All clear'}</span></div>
+      ${groceryGroups.length ? groceryGroups.map(group => `
+        <div class="grocery-group">${esc(group.recipe || 'Other')}</div>
+        ${group.items.map(entry => `
+          <div class="grocery-row${entry.checked ? ' done' : ''}">
+            <input type="checkbox" data-action="grocery-toggle" data-id="${esc(entry.id)}" ${entry.checked ? 'checked' : ''} aria-label="Mark ${esc(entry.name)} as bought">
+            <div style="flex:1"><div class="grocery-name">${esc(entry.name)}</div>${entry.qty ? `<div class="grocery-meta">${esc(entry.qty)}</div>` : ''}</div>
+            <button class="btn btn-xs btn-ghost" data-action="grocery-remove" data-id="${esc(entry.id)}" aria-label="Remove ${esc(entry.name)} from the grocery list">✕</button>
+          </div>`).join('')}`).join('') + `
+        <div class="btn-row" style="margin-top:12px">
+          <button class="btn btn-secondary btn-sm" data-action="grocery-copy">Copy unchecked items</button>
+          ${grocery.some(entry => entry.checked) ? '<button class="btn btn-ghost btn-sm" data-action="grocery-clear-checked">Clear bought</button>' : ''}
+          <button class="btn btn-ghost btn-sm" data-action="grocery-clear-all">Clear all</button>
+        </div>`
+        : '<div class="empty">Nothing here yet. Tap "+ Grocery list" on any recipe and its ingredients land here, grouped by dish. Check items off as you shop.</div>'}
     </div>
 
     <div class="card">
@@ -5308,6 +5376,10 @@ function recipeModalMarkup() {
           ${recipe.ingredients.map(item => `<div class="chip">${esc(item.name)} · ${esc(item.qty)}</div>`).join('')}
         </div>
 
+        <div class="btn-row" style="margin-top:10px">
+          <button class="btn btn-ghost btn-sm" data-action="recipe-grocery-add" data-index="${state.modal.index}">+ Add ingredients to grocery list</button>
+        </div>
+
         <div class="section-label">Cooking mode</div>
         <div class="progress" style="margin:6px 0 12px"><span style="width:${progress}%"></span></div>
         <div class="recipe-step">
@@ -5340,6 +5412,7 @@ function recipeModalMarkup() {
 function normalizeUser(user) {
   user.logs = Object.assign(blankLogs(), user.logs || {});
   if (!Array.isArray(user.customFoods)) user.customFoods = [];
+  if (!Array.isArray(user.groceryList)) user.groceryList = [];
   ['workouts', 'food', 'weights', 'measurements', 'sleep', 'symptoms'].forEach(key => {
     if (!Array.isArray(user.logs[key])) user.logs[key] = [];
   });
@@ -5570,6 +5643,7 @@ function exportPayload() {
     profile: state.user.profile,
     logs: state.user.logs,
     customFoods: state.user.customFoods || [],
+    groceryList: state.user.groceryList || [],
     settings: state.user.settings
   };
 }
@@ -6123,6 +6197,73 @@ document.addEventListener('click', event => {
       state.chefIngredients = '';
       renderApp();
       break;
+
+    case 'recipe-grocery-add': {
+      if (!u) break;
+      const recipe = RECIPES[Number(trigger.dataset.index)];
+      if (!recipe) break;
+      const result = groceryMerge(u.groceryList, groceryItemsForRecipe(recipe), uid);
+      u.groceryList = result.list;
+      saveUser();
+      renderApp();
+      toast(result.added
+        ? `${result.added} item${result.added === 1 ? '' : 's'} from ${recipe.name} added to your grocery list.`
+        : `${recipe.name} is already on your grocery list.`);
+      break;
+    }
+
+    case 'grocery-toggle': {
+      if (!u) break;
+      const entry = u.groceryList.find(item => item.id === trigger.dataset.id);
+      if (!entry) break;
+      entry.checked = !entry.checked;
+      saveUser();
+      renderApp();
+      break;
+    }
+
+    case 'grocery-remove': {
+      if (!u) break;
+      u.groceryList = u.groceryList.filter(item => item.id !== trigger.dataset.id);
+      saveUser();
+      renderApp();
+      toast('Item removed from the grocery list.');
+      break;
+    }
+
+    case 'grocery-clear-checked': {
+      if (!u) break;
+      const cleared = u.groceryList.filter(item => item.checked).length;
+      u.groceryList = u.groceryList.filter(item => !item.checked);
+      saveUser();
+      renderApp();
+      toast(`${cleared} bought item${cleared === 1 ? '' : 's'} cleared.`);
+      break;
+    }
+
+    case 'grocery-clear-all': {
+      if (!u || !u.groceryList.length) break;
+      if (!confirm('Clear the whole grocery list?')) break;
+      u.groceryList = [];
+      saveUser();
+      renderApp();
+      toast('Grocery list cleared.');
+      break;
+    }
+
+    case 'grocery-copy': {
+      if (!u) break;
+      const text = groceryText(u.groceryList);
+      if (!text) { toast('Nothing left to buy - the unchecked list is empty.'); break; }
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text)
+          .then(() => toast('Grocery list copied. Paste it into any notes app.'))
+          .catch(() => toast('Copy blocked by the browser. Long-press to select the list instead.'));
+      } else {
+        toast('Copy is not available in this browser.');
+      }
+      break;
+    }
 
     case 'export-data':
       exportData();

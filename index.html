@@ -10,7 +10,7 @@ Versions through commit c5b049e927cbf6f9edf84ab3bfba4a3482fd9e5c remain MIT-lice
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="description" content="Trainer4U — a private, local-only fitness coaching app for workouts, nutrition, recipes, wellness and progress.">
 <meta name="color-scheme" content="light dark">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-mxSTPnRfXqBrbhAI2NFibcqoM9P6MWG5oRvIPpmQMjw='; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-kaV67SXUYkzKyYF93kgm3xpP4lV2yf2EQ+rjgoUxgRQ='; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'">
 <meta name="theme-color" content="#0F172A">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="#0F172A">
@@ -901,7 +901,7 @@ function toggleTheme() {
    --------------------------------------------------------------------------- */
 // <logic:start>
 // App build version. A test keeps this in sync with the service worker cache name.
-const APP_VERSION = '2026.11.14.1';
+const APP_VERSION = '2026.11.14.2';
 // <logic:end>
 
 // <logic:start>
@@ -996,7 +996,37 @@ const FOOD_DB = [
   { name: 'Papaya', cal: 43, protein: 0.5, carbs: 11, fat: 0.3, basis: 'raw', src: 'recipe: aligned to published USDA raw papaya values' },
   { name: 'Guava', cal: 68, protein: 2.6, carbs: 14, fat: 1, basis: 'raw', src: 'recipe: aligned to published USDA raw common guava values' },
   { name: 'Peanuts, roasted', cal: 587, protein: 24.4, carbs: 21.5, fat: 49.7, basis: 'prepared', src: 'recipe: aligned to published USDA dry-roasted peanut values, no salt' },
-  { name: 'Roasted chana', cal: 370, protein: 20, carbs: 57, fat: 6, basis: 'prepared', src: 'recipe: dry-roasted Bengal gram, no added oil' }
+  { name: 'Roasted chana', cal: 370, protein: 20, carbs: 57, fat: 6, basis: 'prepared', src: 'recipe: dry-roasted Bengal gram, no added oil' },
+  { name: 'Moong dal, cooked', cal: 105, protein: 7, carbs: 19, fat: 0.4, basis: 'cooked', src: 'recipe: aligned to published USDA boiled mung bean values, no added fat' },
+  { name: 'Masoor dal, cooked', cal: 116, protein: 9, carbs: 20, fat: 0.4, basis: 'cooked', src: 'recipe: aligned to published USDA boiled lentil values, no added fat' },
+  { name: 'Toor dal (arhar), cooked', cal: 115, protein: 7, carbs: 20, fat: 0.5, basis: 'cooked', src: 'recipe: aligned to published USDA boiled pigeon pea values, no added fat' },
+  { name: 'Dal tadka', cal: 110, protein: 6, carbs: 13, fat: 4, basis: 'prepared', src: 'recipe: published USDA boiled lentil values plus a ghee-oil tempering' },
+  { name: 'Thepla', cal: 300, protein: 7, carbs: 42, fat: 11, basis: 'prepared', src: 'recipe: aligned to published USDA whole-wheat flatbread values with added oil and fenugreek' },
+  { name: 'Jowar roti', cal: 277, protein: 6.4, carbs: 55, fat: 2, basis: 'prepared', src: 'recipe: published cooked sorghum roti values (277 kcal, 6.4 g protein per 100 g)' },
+  { name: 'Dhokla', cal: 160, protein: 6, carbs: 24, fat: 4, basis: 'prepared', src: 'recipe: steamed fermented chickpea-flour cake, aligned to published USDA chickpea flour values' },
+  { name: 'Rava idli', cal: 150, protein: 4, carbs: 26, fat: 3, basis: 'prepared', src: 'recipe: steamed semolina cakes with curd, aligned to published USDA semolina values' },
+  { name: 'Medu vada', cal: 290, protein: 8, carbs: 28, fat: 16, basis: 'prepared', src: 'recipe: fried urad-dal fritters, aligned to published USDA black gram values plus frying oil' },
+  { name: 'Appam', cal: 120, protein: 2, carbs: 24, fat: 1.5, basis: 'prepared', src: 'recipe: fermented rice-and-coconut pancake, aligned to published USDA rice values' },
+  { name: 'Puttu', cal: 200, protein: 4, carbs: 38, fat: 3.5, basis: 'prepared', src: 'recipe: steamed rice flour with coconut, aligned to published USDA rice and coconut values' },
+  { name: 'Matar paneer', cal: 140, protein: 7, carbs: 8, fat: 9, basis: 'prepared', src: 'recipe: paneer and green peas in tomato gravy, aligned to published USDA paneer and pea values' },
+  { name: 'Paneer butter masala', cal: 170, protein: 8, carbs: 7, fat: 12, basis: 'prepared', src: 'recipe: paneer in a butter-tomato-cream gravy, aligned to published USDA paneer and butter values' },
+  { name: 'Chicken tikka', cal: 150, protein: 22, carbs: 3, fat: 5, basis: 'prepared', src: 'recipe: yogurt-marinated grilled chicken, aligned to published USDA roasted chicken breast values' },
+  { name: 'Tandoori chicken', cal: 160, protein: 24, carbs: 2, fat: 6, basis: 'prepared', src: 'recipe: aligned to published USDA roasted chicken values with a yogurt-spice marinade' },
+  { name: 'Mutton curry', cal: 180, protein: 16, carbs: 4, fat: 11, basis: 'prepared', src: 'recipe: aligned to published USDA cooked goat values plus a tempered-oil gravy' },
+  { name: 'Prawn curry', cal: 110, protein: 13, carbs: 5, fat: 4, basis: 'prepared', src: 'recipe: aligned to published USDA cooked shrimp values plus a coconut-tomato gravy' },
+  { name: 'Anda bhurji (egg bhurji)', cal: 155, protein: 10, carbs: 3, fat: 11, basis: 'prepared', src: 'recipe: scrambled eggs with onion, tomato and oil, aligned to published USDA scrambled egg values' },
+  { name: 'Bhel puri', cal: 180, protein: 4, carbs: 32, fat: 4, basis: 'prepared', src: 'recipe: puffed rice with chutneys and sev, aligned to published USDA puffed rice values' },
+  { name: 'Pani puri', cal: 150, protein: 3, carbs: 26, fat: 4, basis: 'prepared', src: 'recipe: fried semolina shells with spiced water and potato, aligned to published USDA semolina values' },
+  { name: 'Pav bhaji', cal: 130, protein: 3, carbs: 15, fat: 7, basis: 'prepared', src: 'recipe: mashed vegetable curry with buttered bread, aligned to published USDA mixed vegetable values plus butter' },
+  { name: 'Misal pav', cal: 160, protein: 6, carbs: 20, fat: 6, basis: 'prepared', src: 'recipe: sprouted moth-bean curry with bread, aligned to published USDA sprouted legume values' },
+  { name: 'Kheer (rice kheer)', cal: 120, protein: 3, carbs: 18, fat: 4, basis: 'prepared', src: 'recipe: milk-and-rice pudding, aligned to published USDA rice pudding values' },
+  { name: 'Rasgulla', cal: 145, protein: 3.4, carbs: 30, fat: 1.5, basis: 'prepared', src: 'recipe: chhena dumplings in sugar syrup, aligned to published USDA fresh cheese and sugar values' },
+  { name: 'Suji halwa', cal: 220, protein: 3, carbs: 30, fat: 10, basis: 'prepared', src: 'recipe: semolina roasted in ghee with sugar, aligned to published USDA semolina and ghee values' },
+  { name: 'Besan ladoo', cal: 430, protein: 8, carbs: 45, fat: 24, basis: 'prepared', src: 'recipe: chickpea flour roasted in ghee with sugar, aligned to published USDA chickpea flour and ghee values' },
+  { name: 'Dalia (broken wheat porridge), cooked', cal: 90, protein: 3, carbs: 16, fat: 1.5, basis: 'cooked', src: 'recipe: aligned to published USDA cooked bulgur values, milk-free' },
+  { name: 'Ragi malt, cooked', cal: 80, protein: 2, carbs: 15, fat: 1, basis: 'cooked', src: 'recipe: aligned to published USDA finger-millet flour values thinned with water' },
+  { name: 'Coconut water', cal: 19, protein: 0.7, carbs: 3.7, fat: 0.2, basis: 'raw', src: 'recipe: aligned to published USDA unsweetened coconut water values' },
+  { name: 'Filter coffee with milk', cal: 35, protein: 1.5, carbs: 4, fat: 1.5, basis: 'prepared', src: 'recipe: brewed coffee with whole milk and sugar, aligned to published USDA latte values' }
 ];
 
 // Case-insensitive substring filter over the built-in and custom food lists.

@@ -45,7 +45,7 @@ const memoryStorage = (() => {
   return { getItem: key => values.has(key) ? values.get(key) : null, setItem: (key, value) => values.set(key, String(value)) };
 })();
 const factory = new Function('ACTIVITY_MULTIPLIERS', 'GOAL_LABELS', 'today', 'dateOffset', 'localStorage', 'DB_KEY', 'SCHEMA_VERSION', 'uid',
-  code + '\nreturn { clamp, round, safeNum, sortedWeights, currentWeight, weightProgress, workoutsLast7, sleepAverage, loggedDays, bmiFor, bmiCategory, weightTrendPerWeek, weightTrendCategory, calorieDrift, proteinGap, sleepDeficit, macroTargets, baseTargets, getInsights, validateOnboarding, validateCustomFood, gramsForPortion, foodEntryFromFood, validateImportData, recipeMatchScore, groceryItemsForRecipe, groceryMerge, groceryText, weekStart, loadDB, esc, escapeHTML, FOOD_DB, filterFoodItems, APP_VERSION, userUnits, kgToLb, lbToKg, cmToIn, inToCm, weightUnit, lengthUnit, displayWeight, displayLength, parseWeightInput, parseLengthInput, heightDisplay, planRationale, isEncryptedExport, validateEncryptedEnvelope, EXERCISES, HOLD_EXERCISES, injuryAvoids, hasEquipment, equipmentScore, repRangeFor, swapMap, swapCandidates, applyPlanSwaps, sessionSetDone, workoutDraftFromSession, sessionBests, isPlateaued, estimatedOneRepMax, personalRecords, newRecords, FORM_FIGURES, formatRestTime, planEditsFor, setPlanEdit, applyPlanEdits };\n');
+  code + '\nreturn { clamp, round, safeNum, sortedWeights, currentWeight, weightProgress, workoutsLast7, sleepAverage, loggedDays, bmiFor, bmiCategory, weightTrendPerWeek, weightTrendCategory, calorieDrift, proteinGap, sleepDeficit, macroTargets, baseTargets, getInsights, validateOnboarding, validateCustomFood, gramsForPortion, foodEntryFromFood, validateImportData, recipeMatchScore, groceryItemsForRecipe, groceryMerge, groceryText, weekStart, loadDB, esc, escapeHTML, FOOD_DB, filterFoodItems, APP_VERSION, userUnits, kgToLb, lbToKg, cmToIn, inToCm, weightUnit, lengthUnit, displayWeight, displayLength, parseWeightInput, parseLengthInput, heightDisplay, planRationale, isEncryptedExport, validateEncryptedEnvelope, EXERCISES, HOLD_EXERCISES, injuryAvoids, hasEquipment, equipmentScore, repRangeFor, swapMap, swapCandidates, applyPlanSwaps, sessionSetDone, workoutDraftFromSession, sessionBests, isPlateaued, workoutVolume, estimatedOneRepMax, personalRecords, newRecords, FORM_FIGURES, formatRestTime, planEditsFor, setPlanEdit, applyPlanEdits };\n');
 const L = factory(ACTIVITY_MULTIPLIERS, GOAL_LABELS, todayMock, dateOffsetMock, memoryStorage, 'trainer4u_db_v2', 2, () => 'test-food-id');
 
 function mkUser(over = {}) {
@@ -279,6 +279,12 @@ const multiSetUser = { logs: { workouts: [
   { date: '2026-11-08', exercises: [{ name: 'Row', weight: 44, reps: 5 }] }
 ] } };
 check('plateau: best set per session wins', L.isPlateaued(L.sessionBests(multiSetUser, 'Row')));
+
+// --- workout volume ---
+eq('volume sums weight x reps', L.workoutVolume({ exercises: [{ weight: 60, reps: 5 }, { weight: 60, reps: 5 }, { weight: 40, reps: 8 }] }), 920);
+eq('volume skips bodyweight sets', L.workoutVolume({ exercises: [{ weight: 0, reps: 12 }] }), 0);
+eq('volume handles an empty workout', L.workoutVolume({ exercises: [] }), 0);
+eq('volume tolerates junk', L.workoutVolume(null), 0);
 
 memoryStorage.setItem('trainer4u_db_v2', JSON.stringify({
   schemaVersion: 0,

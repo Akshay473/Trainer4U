@@ -45,7 +45,7 @@ const memoryStorage = (() => {
   return { getItem: key => values.has(key) ? values.get(key) : null, setItem: (key, value) => values.set(key, String(value)) };
 })();
 const factory = new Function('ACTIVITY_MULTIPLIERS', 'GOAL_LABELS', 'today', 'dateOffset', 'localStorage', 'DB_KEY', 'SCHEMA_VERSION', 'uid',
-  code + '\nreturn { clamp, round, safeNum, sortedWeights, currentWeight, weightProgress, workoutsLast7, sleepAverage, loggedDays, bmiFor, bmiCategory, weightTrendPerWeek, weightTrendCategory, calorieDrift, proteinGap, sleepDeficit, macroTargets, baseTargets, getInsights, validateOnboarding, validateCustomFood, gramsForPortion, foodEntryFromFood, validateImportData, recipeMatchScore, groceryItemsForRecipe, groceryMerge, groceryText, weekStart, loadDB, esc, escapeHTML, FOOD_DB, filterFoodItems, APP_VERSION, userUnits, kgToLb, lbToKg, cmToIn, inToCm, weightUnit, lengthUnit, displayWeight, displayLength, parseWeightInput, parseLengthInput, heightDisplay, planRationale, isEncryptedExport, validateEncryptedEnvelope, EXERCISES, HOLD_EXERCISES, injuryAvoids, hasEquipment, equipmentScore, repRangeFor, swapMap, swapCandidates, applyPlanSwaps, sessionSetDone, workoutDraftFromSession, estimatedOneRepMax, personalRecords, newRecords, FORM_FIGURES, formatRestTime, planEditsFor, setPlanEdit, applyPlanEdits };\n');
+  code + '\nreturn { clamp, round, safeNum, sortedWeights, currentWeight, weightProgress, workoutsLast7, sleepAverage, loggedDays, bmiFor, bmiCategory, weightTrendPerWeek, weightTrendCategory, calorieDrift, proteinGap, sleepDeficit, macroTargets, baseTargets, getInsights, validateOnboarding, validateCustomFood, gramsForPortion, foodEntryFromFood, validateImportData, recipeMatchScore, groceryItemsForRecipe, groceryMerge, groceryText, weekStart, loadDB, esc, escapeHTML, FOOD_DB, filterFoodItems, APP_VERSION, userUnits, kgToLb, lbToKg, cmToIn, inToCm, weightUnit, lengthUnit, displayWeight, displayLength, parseWeightInput, parseLengthInput, heightDisplay, planRationale, isEncryptedExport, validateEncryptedEnvelope, EXERCISES, HOLD_EXERCISES, injuryAvoids, hasEquipment, equipmentScore, repRangeFor, swapMap, swapCandidates, applyPlanSwaps, sessionSetDone, workoutDraftFromSession, sessionBests, isPlateaued, estimatedOneRepMax, personalRecords, newRecords, FORM_FIGURES, formatRestTime, planEditsFor, setPlanEdit, applyPlanEdits };\n');
 const L = factory(ACTIVITY_MULTIPLIERS, GOAL_LABELS, todayMock, dateOffsetMock, memoryStorage, 'trainer4u_db_v2', 2, () => 'test-food-id');
 
 function mkUser(over = {}) {
@@ -247,6 +247,38 @@ eq('session: draft targets the trained day', draftOut.day, 2);
 eq('session: draft carries entries', draftOut.entries.length, 1);
 check('session: very short sessions floor at 5 minutes', L.workoutDraftFromSession({ startedAt: 0, entries: [] }, { weekday: 2 }, 60000).duration === 5);
 check('session: missing times fall back to 45', L.workoutDraftFromSession({}, { weekday: 2 }, 0).duration === 45);
+
+// --- plateau detection ---
+const mkWorkoutLog = (date, name, weight, reps) => ({ date, exercises: [{ name, weight, reps }] });
+const stalledUser = { logs: { workouts: [
+  mkWorkoutLog('2026-11-01', 'Bench', 60, 5),
+  mkWorkoutLog('2026-11-05', 'Bench', 60, 5),
+  mkWorkoutLog('2026-11-08', 'Bench', 60, 4),
+  mkWorkoutLog('2026-11-01', 'Squat', 80, 5),
+  mkWorkoutLog('2026-11-05', 'Squat', 80, 5),
+  mkWorkoutLog('2026-11-08', 'Squat', 85, 5)
+] } };
+const benchSeries = L.sessionBests(stalledUser, 'Bench');
+eq('plateau: one point per session', benchSeries.length, 3);
+eq('plateau: weighted series kind', benchSeries[0].kind, 'weighted');
+check('plateau: stalled weighted exercise detected', L.isPlateaued(benchSeries));
+check('plateau: progressing exercise not flagged', !L.isPlateaued(L.sessionBests(stalledUser, 'Squat')));
+check('plateau: two sessions is not enough data', !L.isPlateaued(benchSeries.slice(0, 2)));
+check('plateau: empty history is safe', !L.isPlateaued(L.sessionBests({ logs: { workouts: [] } }, 'Bench')));
+const bwUser = { logs: { workouts: [
+  mkWorkoutLog('2026-11-01', 'Push-up', 0, 10),
+  mkWorkoutLog('2026-11-05', 'Push-up', 0, 10),
+  mkWorkoutLog('2026-11-08', 'Push-up', 0, 10)
+] } };
+const bwSeries = L.sessionBests(bwUser, 'Push-up');
+eq('plateau: bodyweight series uses reps', bwSeries[0].kind, 'reps');
+check('plateau: stalled bodyweight exercise detected', L.isPlateaued(bwSeries));
+const multiSetUser = { logs: { workouts: [
+  { date: '2026-11-01', exercises: [{ name: 'Row', weight: 40, reps: 8 }, { name: 'Row', weight: 45, reps: 5 }] },
+  { date: '2026-11-05', exercises: [{ name: 'Row', weight: 45, reps: 5 }] },
+  { date: '2026-11-08', exercises: [{ name: 'Row', weight: 44, reps: 5 }] }
+] } };
+check('plateau: best set per session wins', L.isPlateaued(L.sessionBests(multiSetUser, 'Row')));
 
 memoryStorage.setItem('trainer4u_db_v2', JSON.stringify({
   schemaVersion: 0,

@@ -10,7 +10,7 @@ Versions through commit c5b049e927cbf6f9edf84ab3bfba4a3482fd9e5c remain MIT-lice
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="description" content="Trainer4U — a private, local-only fitness coaching app for workouts, nutrition, recipes, wellness and progress.">
 <meta name="color-scheme" content="light dark">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-UPI71P8F5/xdydHg/jmzInJl42Pz5roPOkheGoLl9Cs='; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-j44eGsF1oP0Es/COiEIH5omtDJ3SoV20srpKlmvl7zw='; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'">
 <meta name="theme-color" content="#0F172A">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="#0F172A">
@@ -925,7 +925,7 @@ function toggleTheme() {
    --------------------------------------------------------------------------- */
 // <logic:start>
 // App build version. A test keeps this in sync with the service worker cache name.
-const APP_VERSION = '2026.11.14.5';
+const APP_VERSION = '2026.11.14.6';
 // <logic:end>
 
 // <logic:start>
@@ -4224,7 +4224,10 @@ function renderTrainer() {
             <div style="font-weight:700">${esc(w.label)} <span class="tiny muted">· ${prettyDate(w.date)}</span></div>
             <div class="tiny muted">${w.duration} min · ${w.exercises?.length || 0} exercises${w.notes ? ` · ${esc(w.notes)}` : ''}</div>
           </div>
-          <button class="btn btn-xs btn-danger" data-action="delete-workout" data-id="${esc(w.id)}">Delete</button>
+          <div style="display:flex;gap:6px">
+            <button class="btn btn-xs btn-ghost" data-action="workout-view" data-id="${esc(w.id)}" aria-label="View ${esc(w.label)} from ${prettyDate(w.date)}">View</button>
+            <button class="btn btn-xs btn-danger" data-action="delete-workout" data-id="${esc(w.id)}" aria-label="Delete ${esc(w.label)} from ${prettyDate(w.date)}">Delete</button>
+          </div>
         </div>`).join('') : '<div class="empty">No workouts logged yet. Pick a day above and log your first session.</div>'}
     </div>`;
 }
@@ -5139,6 +5142,7 @@ function renderModal() {
   if (state.modal.type === 'settings') root.innerHTML = settingsModalMarkup();
   else if (state.modal.type === 'workout') root.innerHTML = workoutModalMarkup();
   else if (state.modal.type === 'session') root.innerHTML = sessionModalMarkup();
+  else if (state.modal.type === 'workout-detail') root.innerHTML = workoutDetailModalMarkup();
   else if (state.modal.type === 'recipe') root.innerHTML = recipeModalMarkup();
   else if (state.modal.type === 'custom-food') root.innerHTML = customFoodModalMarkup();
   else if (state.modal.type === 'backup-password') root.innerHTML = backupPasswordModalMarkup();
@@ -5385,6 +5389,14 @@ function isPlateaued(series) {
   const first = window3[0].value;
   return window3[1].value <= first && window3[2].value <= first;
 }
+/* Total volume of a workout: sum of weight x reps over weighted sets. */
+function workoutVolume(workout) {
+  return ((workout && workout.exercises) || []).reduce((sum, ex) => {
+    const w = Number(ex.weight) || 0;
+    const r = Number(ex.reps) || 0;
+    return sum + (w > 0 && r > 0 ? w * r : 0);
+  }, 0);
+}
 // <logic:end>
 
 function lastExerciseLog(user, name) {
@@ -5484,6 +5496,51 @@ function finishWorkoutSession() {
   state.session = null;
   openModal({ type: 'workout', dayIndex: day.weekday });
   toast('Session complete - check the numbers and save your log.');
+}
+
+function workoutDetailModalMarkup() {
+  const u = state.user;
+  const units = userUnits(u);
+  const workout = u.logs.workouts.find(item => item.id === state.modal.id);
+  if (!workout) return '';
+  const recordsByName = new Map(personalRecords(u).map(record => [record.name, record]));
+  const volume = workoutVolume(workout);
+  return `
+    <div class="modal-overlay" data-action="close-modal">
+      <div class="modal" role="dialog" aria-modal="true" aria-label="Workout detail">
+        <div class="modal-head">
+          <div>
+            <h2>${esc(workout.label)}</h2>
+            <p class="small muted">${prettyDate(workout.date)} · ${workout.duration} min${workout.focus ? ` · ${esc(workout.focus)}` : ''}</p>
+          </div>
+          <button class="icon-btn close" data-action="close-modal" aria-label="Close">✕</button>
+        </div>
+        <div class="grid grid-2" style="margin-bottom:12px">
+          <div class="stat"><div class="stat-value">${(workout.exercises || []).length}</div><div class="stat-label">Exercises</div></div>
+          <div class="stat"><div class="stat-value">${volume > 0 ? displayWeight(Math.round(volume), units) : '—'}<small>${volume > 0 ? weightUnit(units) : ''}</small></div><div class="stat-label">Total volume</div></div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Exercise</th><th class="num">Sets</th><th class="num">Reps</th><th class="num">Weight</th><th></th></tr></thead>
+            <tbody>
+              ${(workout.exercises || []).map(ex => {
+                const record = recordsByName.get(ex.name);
+                const isRecord = record && record.date === workout.date && Number(ex.weight) > 0;
+                return `<tr>
+                  <td>${esc(ex.name)}</td>
+                  <td class="num">${ex.sets || 1}</td>
+                  <td class="num">${ex.reps}</td>
+                  <td class="num">${Number(ex.weight) > 0 ? `${displayWeight(ex.weight, units)} ${weightUnit(units)}` : 'Bodyweight'}</td>
+                  <td>${isRecord ? '<span class="badge good">PR</span>' : ''}</td>
+                </tr>`;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>
+        ${workout.notes ? `<p class="small muted" style="margin-top:12px">Notes: ${esc(workout.notes)}</p>` : ''}
+        <p class="tiny muted" style="margin-top:10px">PR marks the set that is still your current record for that exercise.</p>
+      </div>
+    </div>`;
 }
 
 function workoutModalMarkup() {
@@ -6288,6 +6345,11 @@ document.addEventListener('click', event => {
 
     case 'log-workout':
       openModal({ type: 'workout', dayIndex: Number(trigger.dataset.day) });
+      break;
+
+    case 'workout-view':
+      if (!u) break;
+      openModal({ type: 'workout-detail', id: trigger.dataset.id });
       break;
 
     case 'delete-workout':

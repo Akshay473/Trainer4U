@@ -45,7 +45,7 @@ const memoryStorage = (() => {
   return { getItem: key => values.has(key) ? values.get(key) : null, setItem: (key, value) => values.set(key, String(value)) };
 })();
 const factory = new Function('ACTIVITY_MULTIPLIERS', 'GOAL_LABELS', 'today', 'dateOffset', 'localStorage', 'DB_KEY', 'SCHEMA_VERSION', 'uid',
-  code + '\nreturn { clamp, round, safeNum, sortedWeights, currentWeight, weightProgress, workoutsLast7, sleepAverage, loggedDays, bmiFor, bmiCategory, weightTrendPerWeek, weightTrendCategory, calorieDrift, proteinGap, sleepDeficit, macroTargets, baseTargets, getInsights, validateOnboarding, validateCustomFood, gramsForPortion, foodEntryFromFood, validateImportData, recipeMatchScore, groceryItemsForRecipe, groceryMerge, groceryText, weekStart, loadDB, esc, escapeHTML, FOOD_DB, filterFoodItems, APP_VERSION, userUnits, kgToLb, lbToKg, cmToIn, inToCm, weightUnit, lengthUnit, displayWeight, displayLength, parseWeightInput, parseLengthInput, heightDisplay, planRationale, isEncryptedExport, validateEncryptedEnvelope, EXERCISES, HOLD_EXERCISES, injuryAvoids, hasEquipment, equipmentScore, repRangeFor, swapMap, swapCandidates, applyPlanSwaps, sessionSetDone, workoutDraftFromSession, sessionBests, isPlateaued, workoutVolume, estimatedOneRepMax, personalRecords, newRecords, FORM_FIGURES, formatRestTime, planEditsFor, setPlanEdit, applyPlanEdits };\n');
+  code + '\nreturn { clamp, round, safeNum, sortedWeights, currentWeight, weightProgress, workoutsLast7, sleepAverage, loggedDays, bmiFor, bmiCategory, weightTrendPerWeek, weightTrendCategory, calorieDrift, proteinGap, sleepDeficit, macroTargets, baseTargets, getInsights, validateOnboarding, validateCustomFood, gramsForPortion, foodEntryFromFood, validateImportData, recipeMatchScore, groceryItemsForRecipe, groceryMerge, groceryText, weekStart, loadDB, esc, escapeHTML, FOOD_DB, filterFoodItems, APP_VERSION, userUnits, kgToLb, lbToKg, cmToIn, inToCm, weightUnit, lengthUnit, displayWeight, displayLength, parseWeightInput, parseLengthInput, heightDisplay, planRationale, isEncryptedExport, validateEncryptedEnvelope, EXERCISES, HOLD_EXERCISES, injuryAvoids, hasEquipment, equipmentScore, repRangeFor, swapMap, swapCandidates, applyPlanSwaps, sessionSetDone, workoutDraftFromSession, sessionBests, isPlateaued, workoutVolume, estimatedOneRepMax, personalRecords, newRecords, FORM_FIGURES, formatRestTime, planEditsFor, setPlanEdit, applyPlanEdits, filterWorkoutHistory };\n');
 const L = factory(ACTIVITY_MULTIPLIERS, GOAL_LABELS, todayMock, dateOffsetMock, memoryStorage, 'trainer4u_db_v2', 2, () => 'test-food-id');
 
 function mkUser(over = {}) {
@@ -445,6 +445,21 @@ const rationaleInjury = L.planRationale(mkPlan(3, 3, ['Push', 'Pull', 'Legs']), 
 check('rationale notes injury filtering', rationaleInjury.some(line => line.includes('aggravate')));
 const rationale5 = L.planRationale(mkPlan(5, 5, ['Push', 'Pull', 'Legs', 'Upper', 'Lower']), mkUser({ profile: { daysPerWeek: 5 } }));
 check('rationale explains twice-a-week coverage on 5 days', rationale5.some(line => line.includes('more than once a week')));
+
+// Workout history filters
+const whUser = [
+  { id: 'w1', label: 'Upper A', date: '2026-11-05', duration: 50, notes: 'Felt strong' },
+  { id: 'w2', label: 'Lower B', date: '2026-11-03', duration: 45, notes: 'Knee warmup' },
+  { id: 'w3', label: 'Upper B', date: '2026-10-20', duration: 55, notes: '' },
+  { id: 'w4', label: 'Lower A', date: '2026-10-01', duration: 40, notes: 'Light day' }
+];
+check('history filter returns all sorted newest first', L.filterWorkoutHistory(whUser, { period: 'all', query: '' }).map(w => w.id).join(',') === 'w1,w2,w3,w4');
+check('history filter last 7 days excludes older sessions', L.filterWorkoutHistory(whUser, { period: 'week', query: '' }).map(w => w.id).join(',') === 'w1,w2');
+check('history filter last 30 days keeps the month window', L.filterWorkoutHistory(whUser, { period: 'month', query: '' }).map(w => w.id).join(',') === 'w1,w2,w3');
+check('history filter search matches label case-insensitively', L.filterWorkoutHistory(whUser, { period: 'all', query: 'lower' }).map(w => w.id).join(',') === 'w2,w4');
+check('history filter search matches notes', L.filterWorkoutHistory(whUser, { period: 'all', query: 'knee' }).map(w => w.id).join(',') === 'w2');
+check('history filter combines period and search', L.filterWorkoutHistory(whUser, { period: 'week', query: 'upper' }).map(w => w.id).join(',') === 'w1');
+check('history filter with no filters defaults to all', L.filterWorkoutHistory(whUser, null).length === 4);
 
 // Static release checks for CSP, icons and the removed insecure hash fallback.
 const inlineScript = /<script>([\s\S]*?)<\/script>/.exec(html)[1];

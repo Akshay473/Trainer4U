@@ -10,7 +10,7 @@ Versions through commit c5b049e927cbf6f9edf84ab3bfba4a3482fd9e5c remain MIT-lice
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="description" content="Trainer4U — a private, local-only fitness coaching app for workouts, nutrition, recipes, wellness and progress.">
 <meta name="color-scheme" content="light dark">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-j44eGsF1oP0Es/COiEIH5omtDJ3SoV20srpKlmvl7zw='; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-xjgP+OBUxPbVqSDwYhVx/jY5kbMroyoP9z4RF6HyGUk='; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'">
 <meta name="theme-color" content="#0F172A">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="#0F172A">
@@ -413,6 +413,8 @@ select { appearance: none; background-image: linear-gradient(45deg, transparent 
 .overload { font-size: .7rem; color: var(--accent-ink); font-weight: 650; margin-top: 5px; }
 .history-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 9px 0; border-bottom: 1px dashed var(--line); }
 .history-row:last-child { border-bottom: 0; }
+.history-filters { display: flex; gap: 8px; margin: 4px 0 8px; flex-wrap: wrap; }
+.history-filters select, .history-filters input { flex: 1; min-width: 140px; }
 
 /* ---------- Nutritionist ---------- */
 .macro-bar + .macro-bar { margin-top: 12px; }
@@ -694,6 +696,7 @@ const state = {
   trainerMode: 'gym',
   chefIngredients: '',
   chefFilters: { cuisine: 'All', diet: 'All', meal: 'All' },
+  historyFilters: { period: 'all', query: '' },
   session: null,
   workoutDraft: null,
   measure: 'waist'
@@ -925,7 +928,7 @@ function toggleTheme() {
    --------------------------------------------------------------------------- */
 // <logic:start>
 // App build version. A test keeps this in sync with the service worker cache name.
-const APP_VERSION = '2026.11.14.6';
+const APP_VERSION = '2026.11.14.7';
 // <logic:end>
 
 // <logic:start>
@@ -1831,6 +1834,23 @@ function weightProgress(user) {
 function workoutsLast7(user) {
   const from = dateOffset(-6);
   return user.logs.workouts.filter(workout => workout.date >= from && workout.date <= today());
+}
+// <logic:end>
+
+// <logic:start>
+function filterWorkoutHistory(workouts, filters) {
+  const period = filters && filters.period ? filters.period : 'all';
+  const query = filters && filters.query ? String(filters.query).trim().toLowerCase() : '';
+  let list = [...workouts].sort((a, b) => b.date.localeCompare(a.date));
+  if (period === 'week' || period === 'month') {
+    const from = dateOffset(period === 'week' ? -6 : -29);
+    const to = today();
+    list = list.filter(workout => workout.date >= from && workout.date <= to);
+  }
+  if (query) {
+    list = list.filter(workout => `${workout.label || ''} ${workout.notes || ''}`.toLowerCase().includes(query));
+  }
+  return list;
 }
 // <logic:end>
 
@@ -4089,13 +4109,37 @@ function buildPlan(user) {
   return applyPlanEdits(user, applyPlanSwaps(user, plan));
 }
 
+function historyCountLabel(filtered, total, active) {
+  return active ? `${filtered} of ${total}` : `${total} total`;
+}
+
+function workoutHistoryRowsMarkup(workouts, filtersActive) {
+  if (!workouts.length) {
+    return `<div class="empty">${filtersActive ? 'No workouts match these filters.' : 'No workouts logged yet. Pick a day above and log your first session.'}</div>`;
+  }
+  return workouts.map(w => `
+    <div class="history-row">
+      <div>
+        <div style="font-weight:700">${esc(w.label)} <span class="tiny muted">· ${prettyDate(w.date)}</span></div>
+        <div class="tiny muted">${w.duration} min · ${w.exercises?.length || 0} exercises${w.notes ? ` · ${esc(w.notes)}` : ''}</div>
+      </div>
+      <div style="display:flex;gap:6px">
+        <button class="btn btn-xs btn-ghost" data-action="workout-view" data-id="${esc(w.id)}" aria-label="View ${esc(w.label)} from ${prettyDate(w.date)}">View</button>
+        <button class="btn btn-xs btn-danger" data-action="delete-workout" data-id="${esc(w.id)}" aria-label="Delete ${esc(w.label)} from ${prettyDate(w.date)}">Delete</button>
+      </div>
+    </div>`).join('');
+}
+
 function renderTrainer() {
   const u = state.user;
   const p = u.profile;
   const plan = buildPlan(u);
   const mode = plan.mode;
   const todayWeekday = (new Date().getDay() + 6) % 7;
-  const history = [...u.logs.workouts].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 6);
+  const historyFilters = state.historyFilters;
+  const filteredHistory = filterWorkoutHistory(u.logs.workouts, historyFilters);
+  const historyActive = historyFilters.period !== 'all' || historyFilters.query.trim() !== '';
+  const history = filteredHistory.slice(0, 12);
   const homeKit = (p.equipment || []).filter(item => ['dumbbells', 'bands', 'kettlebell'].includes(item));
   const kitLabels = homeKit.map(item => (EQUIPMENT.find(([value]) => value === item) || [item, item])[1]);
   const modeNote = mode === 'gym'
@@ -4217,18 +4261,18 @@ function renderTrainer() {
     </div>
 
     <div class="card">
-      <div class="card-head"><h2>Recent workouts</h2><span class="pill">${u.logs.workouts.length} total</span></div>
-      ${history.length ? history.map(w => `
-        <div class="history-row">
-          <div>
-            <div style="font-weight:700">${esc(w.label)} <span class="tiny muted">· ${prettyDate(w.date)}</span></div>
-            <div class="tiny muted">${w.duration} min · ${w.exercises?.length || 0} exercises${w.notes ? ` · ${esc(w.notes)}` : ''}</div>
-          </div>
-          <div style="display:flex;gap:6px">
-            <button class="btn btn-xs btn-ghost" data-action="workout-view" data-id="${esc(w.id)}" aria-label="View ${esc(w.label)} from ${prettyDate(w.date)}">View</button>
-            <button class="btn btn-xs btn-danger" data-action="delete-workout" data-id="${esc(w.id)}" aria-label="Delete ${esc(w.label)} from ${prettyDate(w.date)}">Delete</button>
-          </div>
-        </div>`).join('') : '<div class="empty">No workouts logged yet. Pick a day above and log your first session.</div>'}
+      <div class="card-head"><h2>Recent workouts</h2><span class="pill" id="history-count">${historyCountLabel(filteredHistory.length, u.logs.workouts.length, historyActive)}</span></div>
+      ${u.logs.workouts.length ? `
+      <div class="history-filters">
+        <select data-change="history-period" aria-label="Filter workouts by period">
+          <option value="all" ${historyFilters.period === 'all' ? 'selected' : ''}>All time</option>
+          <option value="week" ${historyFilters.period === 'week' ? 'selected' : ''}>Last 7 days</option>
+          <option value="month" ${historyFilters.period === 'month' ? 'selected' : ''}>Last 30 days</option>
+        </select>
+        <input id="history-search" type="search" placeholder="Search workouts" value="${esc(historyFilters.query)}" aria-label="Search workouts">
+      </div>
+      <div id="history-list">${workoutHistoryRowsMarkup(history, historyActive)}</div>
+      ${filteredHistory.length > history.length ? `<p class="tiny muted" style="margin-top:8px">Showing the newest ${history.length} of ${filteredHistory.length} matches - refine the filters to narrow down.</p>` : ''}` : '<div class="empty">No workouts logged yet. Pick a day above and log your first session.</div>'}
     </div>`;
 }
 
@@ -6863,6 +6907,16 @@ document.addEventListener('submit', async event => {
 document.addEventListener('input', event => {
   const form = event.target.closest('form[data-form="onboarding"]');
   if (form) clearOnboardingErrors(form);
+  if (event.target.id === 'history-search' && state.user) {
+    state.historyFilters.query = event.target.value;
+    const filtered = filterWorkoutHistory(state.user.logs.workouts, state.historyFilters);
+    const active = state.historyFilters.period !== 'all' || state.historyFilters.query.trim() !== '';
+    const list = document.getElementById('history-list');
+    if (list) list.innerHTML = workoutHistoryRowsMarkup(filtered.slice(0, 12), active);
+    const pill = document.getElementById('history-count');
+    if (pill) pill.textContent = historyCountLabel(filtered.length, state.user.logs.workouts.length, active);
+    return;
+  }
   if (event.target.id === 'food-filter') {
     const foodForm = event.target.closest('form[data-form="add-food"]');
     const foodSelect = foodForm && foodForm.querySelector('#food-name');
@@ -6891,6 +6945,11 @@ document.addEventListener('change', async event => {
   }
   if (input.matches('[data-change="measure"]')) {
     state.measure = input.value;
+    renderApp();
+    return;
+  }
+  if (input.matches('[data-change="history-period"]')) {
+    state.historyFilters.period = input.value;
     renderApp();
     return;
   }

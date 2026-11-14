@@ -10,7 +10,7 @@ Versions through commit c5b049e927cbf6f9edf84ab3bfba4a3482fd9e5c remain MIT-lice
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="description" content="Trainer4U — a private, local-only fitness coaching app for workouts, nutrition, recipes, wellness and progress.">
 <meta name="color-scheme" content="light dark">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-QIIo4sb7Xpfnc3C6lZEFSaVWGw1YBXkq373ZD1h28iA='; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-UPI71P8F5/xdydHg/jmzInJl42Pz5roPOkheGoLl9Cs='; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'">
 <meta name="theme-color" content="#0F172A">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="#0F172A">
@@ -925,7 +925,7 @@ function toggleTheme() {
    --------------------------------------------------------------------------- */
 // <logic:start>
 // App build version. A test keeps this in sync with the service worker cache name.
-const APP_VERSION = '2026.11.14.4';
+const APP_VERSION = '2026.11.14.5';
 // <logic:end>
 
 // <logic:start>
@@ -3907,6 +3907,15 @@ function overloadHint(user, exerciseName, reps) {
   return '';
 }
 
+function plateauHint(user, exerciseName) {
+  const series = sessionBests(user, exerciseName);
+  if (!isPlateaued(series)) return '';
+  const kind = series[series.length - 1].kind;
+  return kind === 'weighted'
+    ? 'Stalled for 3 sessions. Deload about 10% this week or Swap to a variation - progress usually resumes after a reset.'
+    : 'Stuck at the same reps for 3 sessions. Add a 2-3 second pause at the hardest point, or Swap to a harder variation.';
+}
+
 function planTemplates(days) {
   const full = { focus: 'Full body', slots: ['squat', 'pushH', 'pullH', 'hinge', 'pushV', 'core'], max: 6 };
   const upper = { focus: 'Upper body', slots: ['pushH', 'pullH', 'pushV', 'pullV', 'lateral', 'biceps', 'triceps', 'core'], max: 7 };
@@ -4158,6 +4167,7 @@ function renderTrainer() {
           <div class="exercise-list">
             ${day.exercises.map(ex => {
               const hint = day.recovery ? '' : overloadHint(u, ex.name, ex.reps);
+              const stall = day.recovery ? '' : plateauHint(u, ex.name);
               const ref = EXERCISES.find(item => item.name === ex.name) || {};
               const guide = ref.fig && FORM_FIGURES[ref.fig] ? FORM_FIGURES[ref.fig] : '';
               const stepsList = ref.steps ? `<ol class="cue-steps">${ref.steps.map(step => `<li>${esc(step)}</li>`).join('')}</ol>` : '';
@@ -4170,6 +4180,7 @@ function renderTrainer() {
                 ${ex.rest ? `<div class="exercise-meta">Rest ${ex.rest}s between sets</div>` : '<div class="exercise-meta">Continuous, easy pace</div>'}
                 <details class="exercise-cues"><summary>Instructions</summary>${guide}${stepsList || esc(ex.cues)}</details>
                 ${hint ? `<div class="overload">${esc(hint)}</div>` : ''}
+                ${stall ? `<div class="overload" style="color:var(--warn)">${esc(stall)}</div>` : ''}
                 ${day.recovery ? '' : `<button class="btn btn-xs btn-ghost swap-btn" data-action="swap-exercise" data-day="${day.weekday}" data-name="${esc(ex.name)}" aria-label="Swap ${esc(ex.name)} for a similar exercise" title="Try a different exercise for this slot">⇄ Swap</button>`}
                 ${!day.recovery && ex.rest ? `<button class="btn btn-xs btn-ghost rest-btn" data-action="rest-timer" data-seconds="${ex.rest}" data-name="${esc(ex.name)}" aria-label="Start a ${ex.rest} second rest timer for ${esc(ex.name)}" title="Start the rest timer for this exercise">⏱ Rest</button>` : ''}
                 ${day.recovery ? '' : `<div class="tune-row">
@@ -5131,6 +5142,9 @@ function renderModal() {
   else if (state.modal.type === 'recipe') root.innerHTML = recipeModalMarkup();
   else if (state.modal.type === 'custom-food') root.innerHTML = customFoodModalMarkup();
   else if (state.modal.type === 'backup-password') root.innerHTML = backupPasswordModalMarkup();
+  if (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    root.querySelectorAll('svg.form-fig').forEach(fig => fig.pauseAnimations());
+  }
   const focusable = modalFocusable();
   if (focusable.length) focusable[0].focus();
 }
@@ -5340,6 +5354,36 @@ function workoutDraftFromSession(session, day, now) {
     duration: minutes,
     entries: session && Array.isArray(session.entries) ? session.entries : []
   };
+}
+// <logic:end>
+
+// <logic:start>
+/* Plateau detection. For one exercise, take each logged session's best set
+   (estimated 1RM for weighted work, reps for bodyweight), oldest first. */
+function sessionBests(user, name) {
+  const workouts = [...((user && user.logs.workouts) || [])].sort((a, b) => a.date.localeCompare(b.date));
+  const series = [];
+  workouts.forEach(workout => {
+    const sets = (workout.exercises || []).filter(ex => ex.name === name);
+    if (!sets.length) return;
+    const weighted = sets.filter(ex => Number(ex.weight) > 0);
+    if (weighted.length) {
+      const best = weighted.reduce((top, ex) => estimatedOneRepMax(ex.weight, ex.reps) > estimatedOneRepMax(top.weight, top.reps) ? ex : top, weighted[0]);
+      series.push({ date: workout.date, value: estimatedOneRepMax(best.weight, best.reps), kind: 'weighted' });
+    } else {
+      const best = sets.reduce((top, ex) => (Number(ex.reps) || 0) > (Number(top.reps) || 0) ? ex : top, sets[0]);
+      series.push({ date: workout.date, value: Number(best.reps) || 0, kind: 'reps' });
+    }
+  });
+  return series;
+}
+/* Stalled = at least 3 sessions and the last 3 show no new best after the
+   first of them. */
+function isPlateaued(series) {
+  if (!Array.isArray(series) || series.length < 3) return false;
+  const window3 = series.slice(-3);
+  const first = window3[0].value;
+  return window3[1].value <= first && window3[2].value <= first;
 }
 // <logic:end>
 

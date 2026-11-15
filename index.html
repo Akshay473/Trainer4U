@@ -10,7 +10,7 @@ Versions through commit c5b049e927cbf6f9edf84ab3bfba4a3482fd9e5c remain MIT-lice
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="description" content="Trainer4U — a private, local-only fitness coaching app for workouts, nutrition, recipes, wellness and progress.">
 <meta name="color-scheme" content="light dark">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-5Qmvqxq0yepdNlI5xEyrDGEiAm6VJx7RWHnfwL07CVw='; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-oTtT2mUBSv8HyqUWtT5Tt2kg0pAF5dV5Q9k3TvMTkRQ='; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'">
 <meta name="theme-color" content="#0F172A">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="#0F172A">
@@ -415,6 +415,12 @@ select { appearance: none; background-image: linear-gradient(45deg, transparent 
 .history-row:last-child { border-bottom: 0; }
 .history-filters { display: flex; gap: 8px; margin: 4px 0 8px; flex-wrap: wrap; }
 .history-filters select, .history-filters input { flex: 1; min-width: 140px; }
+.cal-grid { display: grid; grid-template-rows: repeat(7, 11px); grid-auto-flow: column; grid-auto-columns: 1fr; gap: 3px; margin: 8px 0 2px; }
+.cal-cell { border-radius: 2px; background: var(--line); }
+.cal-cell.workout { background: var(--accent); }
+.cal-cell.food { background: var(--good); }
+.cal-cell.both { background: linear-gradient(135deg, var(--accent) 50%, var(--good) 50%); }
+.cal-cell.future { background: transparent; border: 1px dashed var(--line); }
 
 /* ---------- Nutritionist ---------- */
 .macro-bar + .macro-bar { margin-top: 12px; }
@@ -928,7 +934,7 @@ function toggleTheme() {
    --------------------------------------------------------------------------- */
 // <logic:start>
 // App build version. A test keeps this in sync with the service worker cache name.
-const APP_VERSION = '2026.11.14.8';
+const APP_VERSION = '2026.11.15.1';
 // <logic:end>
 
 // <logic:start>
@@ -1863,6 +1869,25 @@ function deloadWeight(weight) {
   const w = Number(weight) || 0;
   if (w <= 0) return 0;
   return Math.round(w * 0.9 * 2) / 2;
+}
+// <logic:end>
+
+// <logic:start>
+function consistencyCalendar(user, weeks, todayStr) {
+  const count = Math.max(1, Number(weeks) || 12) * 7;
+  const end = todayStr || today();
+  const start = parseDate(weekStart(end));
+  start.setDate(start.getDate() - (count - 7));
+  const workoutDays = new Set((user.logs.workouts || []).map(entry => entry.date));
+  const foodDays = new Set((user.logs.food || []).map(entry => entry.date));
+  const days = [];
+  const cursor = new Date(start);
+  for (let i = 0; i < count; i++) {
+    const date = isoDate(cursor);
+    days.push({ date, workout: workoutDays.has(date), food: foodDays.has(date), future: date > end });
+    cursor.setDate(cursor.getDate() + 1);
+  }
+  return days;
 }
 // <logic:end>
 
@@ -4935,6 +4960,15 @@ function renderProgress() {
       <div class="card-head"><h2>Workouts per week</h2><span class="pill">Last 8 weeks</span></div>
       <div class="chart-wrap"><canvas id="workoutChart"></canvas></div>
       <div class="legend"><span><i style="background:var(--good)"></i>Sessions logged</span></div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><h2>Consistency</h2><span class="pill">Last 12 weeks</span></div>
+      <div class="cal-grid" role="img" aria-label="Calendar of the last 12 weeks. Each cell is a day; coloured cells have a workout or food log.">
+        ${consistencyCalendar(u, 12).map(day => `<div class="cal-cell ${day.future ? 'future' : day.workout && day.food ? 'both' : day.workout ? 'workout' : day.food ? 'food' : ''}" title="${prettyDate(day.date)}${day.future ? '' : day.workout || day.food ? ` · ${[day.workout ? 'workout' : '', day.food ? 'food log' : ''].filter(Boolean).join(' + ')}` : ' · nothing logged'}"></div>`).join('')}
+      </div>
+      <div class="legend"><span><i style="background:var(--accent)"></i>Workout</span><span><i style="background:var(--good)"></i>Food log</span><span><i style="background:linear-gradient(135deg, var(--accent) 50%, var(--good) 50%)"></i>Both</span></div>
+      <p class="tiny muted" style="margin-top:8px">Each column is a week, Monday at the top. Hover a cell for the date.</p>
     </div>
 
     <div class="grid grid-2">

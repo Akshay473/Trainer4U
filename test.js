@@ -45,7 +45,7 @@ const memoryStorage = (() => {
   return { getItem: key => values.has(key) ? values.get(key) : null, setItem: (key, value) => values.set(key, String(value)) };
 })();
 const factory = new Function('ACTIVITY_MULTIPLIERS', 'GOAL_LABELS', 'today', 'dateOffset', 'localStorage', 'DB_KEY', 'SCHEMA_VERSION', 'uid',
-  code + '\nreturn { clamp, round, safeNum, sortedWeights, currentWeight, weightProgress, workoutsLast7, sleepAverage, loggedDays, bmiFor, bmiCategory, weightTrendPerWeek, weightTrendCategory, calorieDrift, proteinGap, sleepDeficit, macroTargets, baseTargets, getInsights, validateOnboarding, validateCustomFood, gramsForPortion, foodEntryFromFood, validateImportData, recipeMatchScore, groceryItemsForRecipe, groceryMerge, groceryText, weekStart, loadDB, esc, escapeHTML, FOOD_DB, filterFoodItems, APP_VERSION, userUnits, kgToLb, lbToKg, cmToIn, inToCm, weightUnit, lengthUnit, displayWeight, displayLength, parseWeightInput, parseLengthInput, heightDisplay, planRationale, isEncryptedExport, validateEncryptedEnvelope, EXERCISES, HOLD_EXERCISES, injuryAvoids, hasEquipment, equipmentScore, repRangeFor, swapMap, swapCandidates, applyPlanSwaps, sessionSetDone, workoutDraftFromSession, sessionBests, isPlateaued, workoutVolume, estimatedOneRepMax, personalRecords, newRecords, FORM_FIGURES, formatRestTime, planEditsFor, setPlanEdit, applyPlanEdits, filterWorkoutHistory, deloadActive, deloadWeight };\n');
+  code + '\nreturn { clamp, round, safeNum, sortedWeights, currentWeight, weightProgress, workoutsLast7, sleepAverage, loggedDays, bmiFor, bmiCategory, weightTrendPerWeek, weightTrendCategory, calorieDrift, proteinGap, sleepDeficit, macroTargets, baseTargets, getInsights, validateOnboarding, validateCustomFood, gramsForPortion, foodEntryFromFood, validateImportData, recipeMatchScore, groceryItemsForRecipe, groceryMerge, groceryText, weekStart, loadDB, esc, escapeHTML, FOOD_DB, filterFoodItems, APP_VERSION, userUnits, kgToLb, lbToKg, cmToIn, inToCm, weightUnit, lengthUnit, displayWeight, displayLength, parseWeightInput, parseLengthInput, heightDisplay, planRationale, isEncryptedExport, validateEncryptedEnvelope, EXERCISES, HOLD_EXERCISES, injuryAvoids, hasEquipment, equipmentScore, repRangeFor, swapMap, swapCandidates, applyPlanSwaps, sessionSetDone, workoutDraftFromSession, sessionBests, isPlateaued, workoutVolume, estimatedOneRepMax, personalRecords, newRecords, FORM_FIGURES, formatRestTime, planEditsFor, setPlanEdit, applyPlanEdits, filterWorkoutHistory, deloadActive, deloadWeight, consistencyCalendar };\n');
 const L = factory(ACTIVITY_MULTIPLIERS, GOAL_LABELS, todayMock, dateOffsetMock, memoryStorage, 'trainer4u_db_v2', 2, () => 'test-food-id');
 
 function mkUser(over = {}) {
@@ -468,6 +468,19 @@ check('deload inactive after the end date', L.deloadActive(deloadUser, '2026-11-
 check('deload inactive when never set', L.deloadActive(mkUser(), '2026-11-05') === false);
 check('deload weight takes 10% off and rounds to half kg', L.deloadWeight(100) === 90 && L.deloadWeight(87.5) === 79);
 check('deload weight handles zero and junk', L.deloadWeight(0) === 0 && L.deloadWeight('abc') === 0);
+
+// Consistency calendar
+const calUser = mkUser();
+calUser.logs.workouts = [{ id: 'w1', label: 'Upper A', date: '2026-11-03', duration: 45 }];
+calUser.logs.food = [{ id: 'f1', date: '2026-11-03', name: 'Dal' }, { id: 'f2', date: '2026-11-05', name: 'Rice' }];
+const cal = L.consistencyCalendar(calUser, 2, '2026-11-05');
+check('calendar covers weeks x 7 days', cal.length === 14);
+check('calendar starts on the Monday of the first week', cal[0].date === '2026-10-26');
+check('calendar ends on the Sunday of the current week', cal[13].date === '2026-11-08');
+check('calendar flags workout and food days', cal.find(d => d.date === '2026-11-03').workout === true && cal.find(d => d.date === '2026-11-03').food === true);
+check('calendar flags food-only days', (d => d.food && !d.workout)(cal.find(d => d.date === '2026-11-05')));
+check('calendar flags future days', cal.filter(d => d.future).map(d => d.date).join(',') === '2026-11-06,2026-11-07,2026-11-08');
+check('calendar defaults to 12 weeks', L.consistencyCalendar(mkUser(), undefined, '2026-11-05').length === 84);
 
 // Static release checks for CSP, icons and the removed insecure hash fallback.
 const inlineScript = /<script>([\s\S]*?)<\/script>/.exec(html)[1];

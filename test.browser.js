@@ -1,4 +1,4 @@
-/* global state, saveUser, renderApp, RECIPES, buildPlan, swapCandidates */
+/* global state, saveUser, renderApp, RECIPES, buildPlan, swapCandidates, dateOffset, today */
 'use strict';
 const http = require('http');
 const fs = require('fs');

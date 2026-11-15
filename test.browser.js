@@ -567,6 +567,24 @@ let browser;
   await page.waitForFunction(() => document.querySelectorAll('#photo-mount .photo-card').length === 1);
   check('photos survive a reload (still on-device)', true);
 
+  // --- Printable weekly plan ---
+  await tab(page, 'trainer');
+  await page.evaluate(() => { window.__prints = 0; window.print = () => { window.__prints += 1; }; });
+  await page.click('[data-action="print-plan"]');
+  check('print button calls window.print', await page.evaluate(() => window.__prints === 1));
+  await page.emulateMedia({ media: 'print' });
+  const printState = await page.evaluate(() => ({
+    topbar: getComputedStyle(document.querySelector('.topbar')).display,
+    tabs: getComputedStyle(document.querySelector('.tabs')).display,
+    dayCards: Array.from(document.querySelectorAll('.day-card')).filter(el => getComputedStyle(el).display !== 'none').length,
+    history: getComputedStyle(document.querySelector('#history-list').closest('.card')).display,
+    printHead: getComputedStyle(document.querySelector('.print-only')).display,
+    buttonsVisible: Array.from(document.querySelectorAll('.day-card .btn')).some(el => getComputedStyle(el).display !== 'none')
+  }));
+  check('print hides chrome and history, keeps the week', printState.topbar === 'none' && printState.tabs === 'none' && printState.dayCards === 7 && printState.history === 'none' && printState.printHead === 'block' && !printState.buttonsVisible, JSON.stringify(printState));
+  await page.emulateMedia({ media: 'screen' });
+  check('screen styles restore after print emulation', await page.evaluate(() => getComputedStyle(document.querySelector('.topbar')).display !== 'none'));
+
   await signup.context.setOffline(false);
 
   await tab(page, 'dashboard');

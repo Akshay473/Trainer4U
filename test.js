@@ -45,7 +45,7 @@ const memoryStorage = (() => {
   return { getItem: key => values.has(key) ? values.get(key) : null, setItem: (key, value) => values.set(key, String(value)) };
 })();
 const factory = new Function('ACTIVITY_MULTIPLIERS', 'GOAL_LABELS', 'today', 'dateOffset', 'localStorage', 'DB_KEY', 'SCHEMA_VERSION', 'uid',
-  code + '\nreturn { clamp, round, safeNum, sortedWeights, currentWeight, weightProgress, workoutsLast7, sleepAverage, loggedDays, bmiFor, bmiCategory, weightTrendPerWeek, weightTrendCategory, calorieDrift, proteinGap, sleepDeficit, macroTargets, baseTargets, getInsights, validateOnboarding, validateCustomFood, gramsForPortion, foodEntryFromFood, validateImportData, recipeMatchScore, groceryItemsForRecipe, groceryMerge, groceryText, weekStart, loadDB, esc, escapeHTML, FOOD_DB, filterFoodItems, APP_VERSION, userUnits, kgToLb, lbToKg, cmToIn, inToCm, weightUnit, lengthUnit, displayWeight, displayLength, parseWeightInput, parseLengthInput, heightDisplay, planRationale, isEncryptedExport, validateEncryptedEnvelope, EXERCISES, HOLD_EXERCISES, injuryAvoids, hasEquipment, equipmentScore, repRangeFor, swapMap, swapCandidates, applyPlanSwaps, sessionSetDone, workoutDraftFromSession, sessionBests, isPlateaued, workoutVolume, estimatedOneRepMax, personalRecords, newRecords, FORM_FIGURES, formatRestTime, planEditsFor, setPlanEdit, applyPlanEdits, filterWorkoutHistory, deloadActive, deloadWeight, consistencyCalendar, healthyWeightRange, lookRecommendations };\n');
+  code + '\nreturn { clamp, round, safeNum, sortedWeights, currentWeight, weightProgress, workoutsLast7, sleepAverage, loggedDays, bmiFor, bmiCategory, weightTrendPerWeek, weightTrendCategory, calorieDrift, proteinGap, sleepDeficit, macroTargets, baseTargets, getInsights, validateOnboarding, validateCustomFood, gramsForPortion, foodEntryFromFood, validateImportData, recipeMatchScore, groceryItemsForRecipe, groceryMerge, groceryText, weekStart, loadDB, esc, escapeHTML, FOOD_DB, filterFoodItems, APP_VERSION, userUnits, kgToLb, lbToKg, cmToIn, inToCm, weightUnit, lengthUnit, displayWeight, displayLength, parseWeightInput, parseLengthInput, heightDisplay, planRationale, isEncryptedExport, validateEncryptedEnvelope, EXERCISES, HOLD_EXERCISES, injuryAvoids, hasEquipment, equipmentScore, repRangeFor, swapMap, swapCandidates, applyPlanSwaps, sessionSetDone, workoutDraftFromSession, sessionBests, isPlateaued, workoutVolume, estimatedOneRepMax, personalRecords, newRecords, FORM_FIGURES, formatRestTime, planEditsFor, setPlanEdit, applyPlanEdits, filterWorkoutHistory, deloadActive, deloadWeight, consistencyCalendar, healthyWeightRange, lookRecommendations, formatBytes, photoCompareIds, photoBeforeAfter };\n');
 const L = factory(ACTIVITY_MULTIPLIERS, GOAL_LABELS, todayMock, dateOffsetMock, memoryStorage, 'trainer4u_db_v2', 2, () => 'test-food-id');
 
 function mkUser(over = {}) {
@@ -690,6 +690,21 @@ check('formatRestTime rounds partial seconds up', L.formatRestTime(89.2) === '1:
   check('plan tuning leaves rest days untouched', L.applyPlanEdits(u6, tunePlan()).schedule[1].exercises.length === 0 && L.applyPlanEdits(u6, tunePlan()).schedule[1].rest === true);
   check('plan tuning edits are scoped per mode and weekday', Object.keys(L.planEditsFor(u1, 'home', 0)).length === 0 && Object.keys(L.planEditsFor(u1, 'gym', 2)).length === 0);
 }
+
+// Progress photos helpers
+eq('formatBytes shows bytes', L.formatBytes(512), '512 B');
+eq('formatBytes shows KB', L.formatBytes(2048), '2 KB');
+eq('formatBytes shows MB', L.formatBytes(3.5 * 1024 * 1024), '3.5 MB');
+eq('formatBytes handles junk', L.formatBytes(-5), '0 B');
+eq('compare select adds a first photo', JSON.stringify(L.photoCompareIds([], 'a')), JSON.stringify(['a']));
+eq('compare select adds a second photo', JSON.stringify(L.photoCompareIds(['a'], 'b')), JSON.stringify(['a', 'b']));
+eq('compare select keeps the newest two', JSON.stringify(L.photoCompareIds(['a', 'b'], 'c')), JSON.stringify(['b', 'c']));
+eq('compare select toggles off', JSON.stringify(L.photoCompareIds(['a', 'b'], 'a')), JSON.stringify(['b']));
+eq('compare select ignores junk', JSON.stringify(L.photoCompareIds(null, 'a')), JSON.stringify(['a']));
+const photoList = [{ id: 'a', ts: 100 }, { id: 'b', ts: 200 }, { id: 'c', ts: 300 }];
+eq('before/after sorts oldest first regardless of tap order', JSON.stringify(L.photoBeforeAfter(photoList, ['c', 'a']).map(p => p.id)), JSON.stringify(['a', 'c']));
+check('before/after drops ids that are not in the library', L.photoBeforeAfter(photoList, ['zzz']).length === 0);
+check('before/after handles a single pick', L.photoBeforeAfter(photoList, ['b']).length === 1 && L.photoBeforeAfter(photoList, ['b'])[0].id === 'b');
 
 console.log('');
 console.log('Passed: ' + passed + '  Failed: ' + failed + '  Blocks extracted: ' + blocks.length);

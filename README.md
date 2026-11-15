@@ -23,6 +23,7 @@
 | **Chef** | 60+ recipes with cuisine, diet, meal and allergy filters, ingredient matching, step-by-step cooking and a grocery list built from any dish's ingredients. |
 | **Health check** | BMI, hydration, sleep, symptom notes, wellness guidance and safety warnings. |
 | **Progress** | Weight, measurement and weekly workout charts with history tables. |
+| **Photos** | Progress photos stored only on the device (IndexedDB, never uploaded), shrunk on-device, with a timeline and side-by-side before/after compare. |
 | **Course correction** | Notices missed workouts, calorie drift, wrong-way weight trends, low protein and poor sleep. |
 | **Data controls** | Validated JSON export/import including custom foods, log reset, profile deletion and light/dark themes. |
 | **PWA and accessibility** | Offline app shell, valid install icons, labelled controls, keyboard-trapped modals and responsive layouts. |

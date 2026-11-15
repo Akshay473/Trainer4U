@@ -521,6 +521,52 @@ let browser;
   await page.reload();
   await page.waitForSelector('.main h1');
   check('offline reload renders the app', true);
+  // --- Progress photos ---
+  await tab(page, 'photos');
+  await page.waitForFunction(() => {
+    const el = document.querySelector('#photo-mount .empty');
+    return el && el.textContent.includes('No photos yet');
+  });
+  check('photos tab opens with an empty timeline', true);
+  const pngA = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==', 'base64');
+  const pngB = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64');
+  await page.setInputFiles('#photo-file', { name: 'front.png', mimeType: 'image/png', buffer: pngA });
+  await page.waitForFunction(() => document.querySelectorAll('#photo-mount .photo-card').length === 1);
+  check('added photo appears in the timeline', true);
+  const storedPhotos = await page.evaluate(() => new Promise(resolve => {
+    const req = indexedDB.open('trainer4u_photos_v1', 1);
+    req.onsuccess = () => {
+      const getAll = req.result.transaction('photos', 'readonly').objectStore('photos').getAll();
+      getAll.onsuccess = () => resolve(getAll.result.map(p => ({ note: p.note, type: p.blob.type, w: p.w })));
+    };
+    req.onerror = () => resolve([]);
+  }));
+  check('photo is stored on-device in IndexedDB as a shrunken jpeg', storedPhotos.length === 1 && storedPhotos[0].type === 'image/jpeg' && storedPhotos[0].w === 1, JSON.stringify(storedPhotos));
+  await page.fill('#photo-note', 'week 1');
+  await page.setInputFiles('#photo-file', { name: 'side.png', mimeType: 'image/png', buffer: pngB });
+  await page.waitForFunction(() => document.querySelectorAll('#photo-mount .photo-card').length === 2);
+  check('second photo keeps its note', (await page.locator('#photo-mount').textContent()).includes('week 1'));
+  await page.locator('[data-action="photo-compare-toggle"]').nth(0).click();
+  await page.waitForFunction(() => document.querySelectorAll('[data-action="photo-compare-toggle"]').length === 2);
+  await page.locator('[data-action="photo-compare-toggle"]').nth(1).click();
+  await page.waitForSelector('#photo-compare .photo-compare-grid');
+  check('before/after compare shows two photos', await page.locator('#photo-compare .photo-compare-grid img').count() === 2);
+  const compareText = await page.locator('#photo-compare').textContent();
+  check('compare panel labels before and after', compareText.includes('Before') && compareText.includes('After'));
+  await axe(page, 'photos');
+  await page.locator('.photo-card .photo-open').first().click();
+  await page.waitForSelector('.photo-view-img');
+  check('tapping a photo opens the large view', true);
+  await page.click('.modal .icon-btn.close');
+  await page.locator('[data-action="photo-delete"]').first().click();
+  await page.waitForFunction(() => document.querySelectorAll('#photo-mount .photo-card').length === 1);
+  check('deleting removes the photo', true);
+  await page.reload();
+  await page.waitForSelector('.main h1');
+  await tab(page, 'photos');
+  await page.waitForFunction(() => document.querySelectorAll('#photo-mount .photo-card').length === 1);
+  check('photos survive a reload (still on-device)', true);
+
   await signup.context.setOffline(false);
 
   await tab(page, 'dashboard');

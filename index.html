@@ -10,7 +10,7 @@ Versions through commit c5b049e927cbf6f9edf84ab3bfba4a3482fd9e5c remain MIT-lice
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="description" content="Trainer4U — a private, local-only fitness coaching app for workouts, nutrition, recipes, wellness and progress.">
 <meta name="color-scheme" content="light dark">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-xjgP+OBUxPbVqSDwYhVx/jY5kbMroyoP9z4RF6HyGUk='; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-5Qmvqxq0yepdNlI5xEyrDGEiAm6VJx7RWHnfwL07CVw='; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'">
 <meta name="theme-color" content="#0F172A">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="#0F172A">
@@ -928,7 +928,7 @@ function toggleTheme() {
    --------------------------------------------------------------------------- */
 // <logic:start>
 // App build version. A test keeps this in sync with the service worker cache name.
-const APP_VERSION = '2026.11.14.7';
+const APP_VERSION = '2026.11.14.8';
 // <logic:end>
 
 // <logic:start>
@@ -1851,6 +1851,18 @@ function filterWorkoutHistory(workouts, filters) {
     list = list.filter(workout => `${workout.label || ''} ${workout.notes || ''}`.toLowerCase().includes(query));
   }
   return list;
+}
+// <logic:end>
+
+// <logic:start>
+function deloadActive(user, todayStr) {
+  const until = user && user.settings && user.settings.deloadUntil;
+  return Boolean(until && String(until) >= (todayStr || today()));
+}
+function deloadWeight(weight) {
+  const w = Number(weight) || 0;
+  if (w <= 0) return 0;
+  return Math.round(w * 0.9 * 2) / 2;
 }
 // <logic:end>
 
@@ -4136,6 +4148,8 @@ function renderTrainer() {
   const plan = buildPlan(u);
   const mode = plan.mode;
   const todayWeekday = (new Date().getDay() + 6) % 7;
+  const deload = deloadActive(u);
+  const stalledCount = deload ? 0 : plan.schedule.reduce((n, d) => n + (d.rest || d.recovery ? 0 : d.exercises.filter(ex => plateauHint(u, ex.name)).length), 0);
   const historyFilters = state.historyFilters;
   const filteredHistory = filterWorkoutHistory(u.logs.workouts, historyFilters);
   const historyActive = historyFilters.period !== 'all' || historyFilters.query.trim() !== '';
@@ -4258,6 +4272,15 @@ function renderTrainer() {
         <div class="stat"><div class="stat-value">${p.goal === 'lose' ? '45s' : p.goal === 'maintain' ? '60s' : '90s'}</div><div class="stat-label">Rest target</div></div>
         <div class="stat"><div class="stat-value">${repRangeFor(p.goal)}</div><div class="stat-label">Rep range</div></div>
       </div>
+      ${deload ? `
+      <div class="alert info" style="margin-top:12px">
+        <div class="alert-title">Deload week active until ${prettyDate(u.settings.deloadUntil)}</div>
+        <p>Log weights prefill about 10% lighter - same sets and reps, easier load. <button class="btn btn-xs btn-ghost" data-action="deload-end">End deload early</button></p>
+      </div>` : stalledCount ? `
+      <div class="alert info" style="margin-top:12px">
+        <div class="alert-title">Stall detected on ${stalledCount} exercise${stalledCount === 1 ? '' : 's'}</div>
+        <p>A deload week (about 10% lighter, same sets and reps) usually gets progress moving again. <button class="btn btn-xs btn-secondary" data-action="deload-start">Start deload week</button></p>
+      </div>` : ''}
     </div>
 
     <div class="card">
@@ -5494,7 +5517,7 @@ function sessionModalMarkup() {
         </div>
         <div class="session-exercise">
           <h3>${esc(ex.name)}</h3>
-          <div class="session-target">${sets} sets × ${esc(ex.reps)}${last && last.weight ? ` · last time ${displayWeight(last.weight, units)} ${weightUnit(units)} × ${last.reps}` : ''}</div>
+          <div class="session-target">${sets} sets × ${esc(ex.reps)}${last && last.weight ? (deloadActive(u) ? ` · deload target ${displayWeight(deloadWeight(last.weight), units)} ${weightUnit(units)}` : ` · last time ${displayWeight(last.weight, units)} ${weightUnit(units)} × ${last.reps}`) : ''}</div>
           ${guide}
           <details class="exercise-cues" style="text-align:left"><summary>Form steps</summary>${stepsList || esc(ex.cues || '')}</details>
         </div>
@@ -5601,6 +5624,7 @@ function workoutModalMarkup() {
       <button class="btn btn-primary w-full" data-action="close-modal" style="margin-top:14px">Got it</button>
     </div></div>`;
   }
+  const deload = deloadActive(u);
   const rows = day.exercises.map((exercise, index) => {
     const last = lastExerciseLog(u, exercise.name);
     const draftEntry = draft ? (draft.entries || [])[index] : null;
@@ -5608,7 +5632,7 @@ function workoutModalMarkup() {
     return `
       <div class="log-row">
         <div class="log-ex">${esc(exercise.name)}<small>${exercise.sets} sets · target ${esc(exercise.reps)}${recordsByName.has(exercise.name) ? ` · best ${displayWeight(recordsByName.get(exercise.name).weight, units)} ${weightUnit(units)} × ${recordsByName.get(exercise.name).reps}` : ''}</small></div>
-        <input type="number" name="w${index}" min="0" max="${units === 'imperial' ? '1100' : '500'}" step="0.5" placeholder="${weightUnit(units)}" value="${draftEntry ? esc(draftEntry.weight) : last && last.weight ? displayWeight(last.weight, units) : ''}" aria-label="${esc(exercise.name)} weight">
+        <input type="number" name="w${index}" min="0" max="${units === 'imperial' ? '1100' : '500'}" step="0.5" placeholder="${weightUnit(units)}" value="${draftEntry ? esc(draftEntry.weight) : last && last.weight ? displayWeight(deload ? deloadWeight(last.weight) : last.weight, units) : ''}" aria-label="${esc(exercise.name)} weight">
         <input type="number" name="r${index}" min="0" max="100" step="1" placeholder="reps" value="${draftEntry && draftEntry.reps !== '' ? esc(draftEntry.reps) : last?.reps || topReps}" aria-label="${esc(exercise.name)} reps">
       </div>`;
   }).join('');
@@ -5619,7 +5643,7 @@ function workoutModalMarkup() {
         <div class="modal-head">
           <div>
             <h2>Log ${esc(day.label)}</h2>
-            <p class="small muted">${esc(day.focus)} · ${day.exercises.length} exercises. ${draft ? 'Prefilled from your guided session - check the numbers and save.' : 'Enter your working weight and reps.'}</p>
+            <p class="small muted">${esc(day.focus)} · ${day.exercises.length} exercises. ${draft ? 'Prefilled from your guided session - check the numbers and save.' : deload ? 'Deload week - weights prefilled about 10% lighter. Adjust if you feel good.' : 'Enter your working weight and reps.'}</p>
           </div>
           <button class="icon-btn close" data-action="close-modal" aria-label="Close">✕</button>
         </div>
@@ -6371,6 +6395,20 @@ document.addEventListener('click', event => {
       break;
     }
 
+    case 'deload-start': {
+      if (!state.user) return;
+      state.user.settings.deloadUntil = dateOffset(7);
+      saveUser();
+      renderApp();
+      return;
+    }
+    case 'deload-end': {
+      if (!state.user) return;
+      delete state.user.settings.deloadUntil;
+      saveUser();
+      renderApp();
+      return;
+    }
     case 'rest-timer':
       startRestTimer(Number(trigger.dataset.seconds), trigger.dataset.name || '');
       break;

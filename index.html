@@ -10,7 +10,7 @@ Versions through commit c5b049e927cbf6f9edf84ab3bfba4a3482fd9e5c remain MIT-lice
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="description" content="Trainer4U — a private, local-only fitness coaching app for workouts, nutrition, recipes, wellness and progress.">
 <meta name="color-scheme" content="light dark">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-oTtT2mUBSv8HyqUWtT5Tt2kg0pAF5dV5Q9k3TvMTkRQ='; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-RH2j2tmmAO57UrNmpqy3zqQuP08EA0NJqXFJUVqa5UM='; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'">
 <meta name="theme-color" content="#0F172A">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="#0F172A">
@@ -934,7 +934,7 @@ function toggleTheme() {
    --------------------------------------------------------------------------- */
 // <logic:start>
 // App build version. A test keeps this in sync with the service worker cache name.
-const APP_VERSION = '2026.11.15.1';
+const APP_VERSION = '2026.11.15.2';
 // <logic:end>
 
 // <logic:start>
@@ -1891,6 +1891,20 @@ function consistencyCalendar(user, weeks, todayStr) {
 }
 // <logic:end>
 
+// <logic:start>
+function healthyWeightRange(profile) {
+  const age = Number(profile && profile.age) || 0;
+  if (age < 18) return null;
+  const height = Number(profile && profile.height) || 0;
+  if (height < 120 || height > 230) return null;
+  let low = 18.5, high = 24;
+  if (profile.sex === 'male') { low = 19; high = 25; }
+  if (age >= 65) { low = 22; high = 27; }
+  const m2 = (height / 100) * (height / 100);
+  return { low: round(low * m2, 1), high: round(high * m2, 1) };
+}
+// <logic:end>
+
 function loggingStreak(user) {
   let streak = 0;
   for (let i = 0; i < 365; i++) {
@@ -2414,6 +2428,30 @@ function renderAlerts(alerts, limit = 3) {
     </div>`).join('');
 }
 
+function healthyRangeHint(profile, units) {
+  const range = healthyWeightRange(profile);
+  if (!range) return '';
+  return `Healthy range for your height: ${displayWeight(range.low, units)}–${displayWeight(range.high, units)} ${weightUnit(units)} (general guide, not medical advice).`;
+}
+
+function onboardingRangeProfile(form) {
+  if (!form) return null;
+  const age = Number((form.querySelector('[name="age"]') || {}).value) || 0;
+  const sex = ((form.querySelector('[name="sex"]') || {}).value) || '';
+  let height = 0;
+  const h = form.querySelector('#ob-height');
+  const hin = form.querySelector('#ob-height-in');
+  if (h && hin) height = (Number(h.value) * 12 + Number(hin.value)) * 2.54;
+  else if (h) height = Number(h.value);
+  return { age, sex, height };
+}
+
+function syncHealthyRangeHint(form) {
+  const hint = form && form.querySelector('#healthy-range-hint');
+  if (!hint) return;
+  hint.textContent = healthyRangeHint(onboardingRangeProfile(form), userUnits(state.user));
+}
+
 function renderDashboard() {
   const u = state.user;
   const p = u.profile;
@@ -2456,7 +2494,7 @@ function renderDashboard() {
       <div class="hero-progress">
         <div class="progress-label"><span>Goal progress</span><strong>${wp.pct}%</strong></div>
         <div class="progress ${wp.pct >= 100 ? 'good' : ''}"><span style="width:${wp.pct}%"></span></div>
-        <div class="tiny muted" style="margin-top:7px">${changeText}${wp.target ? ` Target ${displayWeight(wp.target, units)} ${weightUnit(units)}.` : ' Add a target weight in your profile to track a goal.'}</div>
+        <div class="tiny muted" style="margin-top:7px">${changeText}${wp.target ? ` Target ${displayWeight(wp.target, units)} ${weightUnit(units)}.` : ' Add a target weight in your profile to track a goal.'} ${healthyRangeHint(p, units)}</div>
       </div>
     </section>
 
@@ -3686,6 +3724,7 @@ function renderOnboarding() {
             <div class="field">
               <label for="ob-target">Target weight (${weightUnit(obUnits)}, optional)</label>
               <input id="ob-target" type="number" name="targetWeight" min="${obUnits === 'imperial' ? '66' : '30'}" max="${obUnits === 'imperial' ? '660' : '300'}" step="0.1" placeholder="${obUnits === 'imperial' ? 'e.g. 165' : 'e.g. 75'}" value="${isNew || !p.targetWeight ? '' : displayWeight(p.targetWeight, obUnits)}">
+              <p class="tiny muted" id="healthy-range-hint">${healthyRangeHint({ age: p.age, sex: p.sex, height: p.height }, obUnits)}</p>
             </div>
             <div class="field">
               <label for="ob-days">Available workout days per week</label>
@@ -6979,6 +7018,7 @@ document.addEventListener('submit', async event => {
 document.addEventListener('input', event => {
   const form = event.target.closest('form[data-form="onboarding"]');
   if (form) clearOnboardingErrors(form);
+  if (form && ['ob-height', 'ob-height-in', 'ob-age'].includes(event.target.id)) syncHealthyRangeHint(form);
   if (event.target.id === 'history-search' && state.user) {
     state.historyFilters.query = event.target.value;
     const filtered = filterWorkoutHistory(state.user.logs.workouts, state.historyFilters);
@@ -7005,6 +7045,7 @@ document.addEventListener('change', async event => {
   const input = event.target;
   const onboardingForm = input.closest('form[data-form="onboarding"]');
   if (onboardingForm) clearOnboardingErrors(onboardingForm);
+  if (onboardingForm && input.id === 'ob-sex') syncHealthyRangeHint(onboardingForm);
   if (input.id === 'food-name' || input.id === 'food-unit') {
     const form = input.closest('form[data-form="add-food"]');
     if (form) syncFoodPortionForm(form, true);

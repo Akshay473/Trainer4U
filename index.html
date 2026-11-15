@@ -10,7 +10,7 @@ Versions through commit c5b049e927cbf6f9edf84ab3bfba4a3482fd9e5c remain MIT-lice
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="description" content="Trainer4U — a private, local-only fitness coaching app for workouts, nutrition, recipes, wellness and progress.">
 <meta name="color-scheme" content="light dark">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-4qk3F97JPd4DDABGeha7NaC4owGcb8FlkAxgCPgLkFQ='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-t3iJ3lvFeI4YNMAgLXdFxNARM57o30girgd+/Cgc1GQ='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'">
 <meta name="theme-color" content="#0F172A">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="#0F172A">
@@ -767,6 +767,7 @@ const state = {
   session: null,
   workoutDraft: null,
   measure: 'waist',
+  exerciseTrend: '',
   photoCompare: []
 };
 
@@ -1030,7 +1031,7 @@ function toggleTheme() {
    --------------------------------------------------------------------------- */
 // <logic:start>
 // App build version. A test keeps this in sync with the service worker cache name.
-const APP_VERSION = '2026.11.15.8';
+const APP_VERSION = '2026.11.15.9';
 // <logic:end>
 
 // <logic:start>
@@ -5271,6 +5272,16 @@ function renderProgress() {
   const wp = weightProgress(u);
   const measurements = [...u.logs.measurements].sort((a, b) => a.date.localeCompare(b.date));
   const selectedMeasure = state.measure;
+  const strengthNames = [...new Set(u.logs.workouts.flatMap(workout => (workout.exercises || []).filter(ex => Number(ex.weight) > 0).map(ex => ex.name)))].sort();
+  const selectedExercise = strengthNames.includes(state.exerciseTrend) ? state.exerciseTrend : (strengthNames[0] || '');
+  const strengthPoints = u.logs.workouts
+    .filter(workout => (workout.exercises || []).some(ex => ex.name === selectedExercise && Number(ex.weight) > 0))
+    .sort((a, b) => a.date.localeCompare(b.date))
+    .map(workout => {
+      const ex = workout.exercises.find(item => item.name === selectedExercise);
+      return { date: workout.date, weight: Number(ex.weight), reps: Number(ex.reps) || 0 };
+    });
+  const strengthBest = strengthPoints.reduce((top, point) => !top || point.weight > top.weight ? point : top, null);
   const measurePoints = measurements.filter(entry => Number(entry[selectedMeasure]) > 0);
   const totalWorkouts = u.logs.workouts.length;
   const foodDays = loggedDays(u, 7);
@@ -5346,6 +5357,21 @@ function renderProgress() {
         ${measurePoints.length ? '' : `<div class="chart-empty">No ${esc(selectedMeasure)} measurements yet.</div>`}
       </div>
       <div class="legend"><span><i style="background:var(--accent)"></i>${esc(selectedMeasure)} (cm)</span></div>
+    </div>
+
+    <div class="card">
+      <div class="card-head">
+        <h2>Strength trend</h2>
+        ${strengthNames.length ? `<select data-change="exercise-trend" style="width:auto;min-height:36px;padding:6px 28px 6px 9px;max-width:200px" aria-label="Exercise to chart">
+          ${strengthNames.map(name => `<option value="${esc(name)}" ${selected(name, selectedExercise)}>${esc(name)}</option>`).join('')}
+        </select>` : ''}
+      </div>
+      <div class="chart-wrap">
+        <canvas id="strengthChart"></canvas>
+        ${strengthPoints.length ? '' : '<div class="chart-empty">Log a workout with weights to see strength progress.</div>'}
+      </div>
+      ${strengthNames.length ? `<div class="legend"><span><i style="background:var(--accent)"></i>${esc(selectedExercise)} top set (${weightUnit(units)})</span></div>` : ''}
+      ${strengthBest && strengthPoints.length > 1 && strengthPoints[0].weight > 0 ? `<p class="tiny muted" style="margin-top:8px">First logged ${displayWeight(strengthPoints[0].weight, units)} ${weightUnit(units)} × ${strengthPoints[0].reps} · best ${displayWeight(strengthBest.weight, units)} ${weightUnit(units)} × ${strengthBest.reps}${strengthBest.weight > strengthPoints[0].weight ? ` — up ${Math.round((strengthBest.weight - strengthPoints[0].weight) / strengthPoints[0].weight * 100)}% since you started` : ''}.</p>` : ''}
     </div>
 
     <div class="card">
@@ -5601,6 +5627,17 @@ function drawCharts() {
     { color: cssVar('--accent') }
   );
   drawBarChart($('#workoutChart'), workoutsPerWeek(u), { color: cssVar('--good') });
+  const strengthNamesChart = [...new Set(u.logs.workouts.flatMap(workout => (workout.exercises || []).filter(ex => Number(ex.weight) > 0).map(ex => ex.name)))].sort();
+  const exerciseForChart = strengthNamesChart.includes(state.exerciseTrend) ? state.exerciseTrend : (strengthNamesChart[0] || '');
+  const strengthLogs = u.logs.workouts
+    .filter(workout => (workout.exercises || []).some(ex => ex.name === exerciseForChart && Number(ex.weight) > 0))
+    .sort((a, b) => a.date.localeCompare(b.date))
+    .map(workout => ({ date: workout.date, weight: Number(workout.exercises.find(item => item.name === exerciseForChart).weight) }));
+  drawLineChart(
+    $('#strengthChart'),
+    strengthLogs.map(point => ({ label: prettyDate(point.date), value: displayWeight(point.weight, units) })),
+    { color: cssVar('--accent') }
+  );
 }
 /* ---------------------------------------------------------------------------
    Photos - private progress photos, stored in IndexedDB on this device only.
@@ -7745,6 +7782,11 @@ document.addEventListener('change', async event => {
   }
   if (input.matches('[data-change="measure"]')) {
     state.measure = input.value;
+    renderApp();
+    return;
+  }
+  if (input.matches('[data-change="exercise-trend"]')) {
+    state.exerciseTrend = input.value;
     renderApp();
     return;
   }

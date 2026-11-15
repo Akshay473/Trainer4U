@@ -642,6 +642,19 @@ let browser;
     const canvas = document.querySelector('#weightChart');
     return canvas && canvas.width > 0 && canvas.height > 0;
   }));
+  const exerciseOptions = await demo.page.evaluate(() => {
+    const sel = document.querySelector('[data-change="exercise-trend"]');
+    return sel ? [...sel.options].map(o => o.value) : [];
+  });
+  check('strength trend card lists logged exercises', exerciseOptions.length >= 1, exerciseOptions.join('|'));
+  check('strength chart draws without an empty state', await demo.page.evaluate(() => {
+    const canvas = document.querySelector('#strengthChart');
+    return !!canvas && canvas.width > 0 && !canvas.closest('.chart-wrap').querySelector('.chart-empty');
+  }));
+  if (exerciseOptions.length > 1) {
+    await demo.page.selectOption('[data-change="exercise-trend"]', exerciseOptions[1]);
+    check('exercise select switches the strength chart', await demo.page.evaluate(() => state.exerciseTrend === document.querySelector('[data-change="exercise-trend"]').value));
+  }
   await axe(demo.page, 'populated Progress');
   await demo.page.screenshot({ path: path.join(screenshots, 'trainer4u-progress-populated.png'), fullPage: true });
   await tab(demo.page, 'trainer');

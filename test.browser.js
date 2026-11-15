@@ -382,6 +382,23 @@ let browser;
     return !!row && row.querySelector('.tiny').textContent.trim() === '1 serving';
   }, loggedRecipeName));
 
+  // --- Repeat a recent day ---
+  await page.evaluate(() => {
+    const yesterday = dateOffset(-1);
+    state.user.logs.food.filter(e => e.date === today()).slice(0, 2).forEach(e => { e.date = yesterday; });
+    saveUser(); renderApp();
+  });
+  await page.waitForSelector('[data-action="repeat-food-day"]');
+  check('repeat card lists yesterday', await page.evaluate(() => document.querySelector('[data-action="repeat-food-day"]').dataset.date === dateOffset(-1)));
+  const todayCountBefore = await page.evaluate(() => state.user.logs.food.filter(e => e.date === today()).length);
+  await page.click('[data-action="repeat-food-day"]');
+  await page.waitForFunction(count => state.user.logs.food.filter(e => e.date === today()).length === count + 2, todayCountBefore);
+  check('repeat copies yesterday\'s items into today', true);
+  check('copies get fresh ids and today\'s date', await page.evaluate(() => {
+    const yesterdayIds = new Set(state.user.logs.food.filter(e => e.date === dateOffset(-1)).map(e => e.id));
+    return state.user.logs.food.filter(e => e.date === today()).every(e => !yesterdayIds.has(e.id));
+  }));
+
   await tab(page, 'progress');
   check('weight form defaults to metric', (await page.locator('label[for="weight-kg"]').textContent()).includes('kg'));
   await page.click('[data-action="open-settings"]');

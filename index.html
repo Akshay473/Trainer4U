@@ -10,7 +10,7 @@ Versions through commit c5b049e927cbf6f9edf84ab3bfba4a3482fd9e5c remain MIT-lice
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="description" content="Trainer4U — a private, local-only fitness coaching app for workouts, nutrition, recipes, wellness and progress.">
 <meta name="color-scheme" content="light dark">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-CqvvyKGtg3YF5T+RlkcCNeDHtIsnFp8n7KQR8AGemO4='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-4qk3F97JPd4DDABGeha7NaC4owGcb8FlkAxgCPgLkFQ='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'">
 <meta name="theme-color" content="#0F172A">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="#0F172A">
@@ -1030,7 +1030,7 @@ function toggleTheme() {
    --------------------------------------------------------------------------- */
 // <logic:start>
 // App build version. A test keeps this in sync with the service worker cache name.
-const APP_VERSION = '2026.11.15.7';
+const APP_VERSION = '2026.11.15.8';
 // <logic:end>
 
 // <logic:start>
@@ -4633,6 +4633,7 @@ function renderNutritionist() {
     summaryDays.push({ date, entries: entries.length, ...totalsForEntries(entries) });
   }
   const logged = summaryDays.filter(day => day.entries > 0);
+  const repeatDays = summaryDays.filter(day => day.entries > 0 && day.date !== today()).reverse().slice(0, 4);
   const avg = logged.length ? {
     calories: logged.reduce((s, d) => s + d.calories, 0) / logged.length,
     protein: logged.reduce((s, d) => s + d.protein, 0) / logged.length,
@@ -4719,6 +4720,17 @@ function renderNutritionist() {
         <p class="tiny muted" style="margin-top:10px">Database values are approximate per 100 g and shift with recipes, preparation and brands. For packaged food, add the label under + Custom food for exact numbers.</p>
       </form>
     </div>
+
+    ${repeatDays.length ? `
+    <div class="card">
+      <div class="card-head"><h2>Repeat a recent day</h2><span class="pill">One tap</span></div>
+      <p class="tiny muted" style="margin:0 0 10px">Copy everything you logged on a past day into today's diary, then adjust what changed.</p>
+      ${repeatDays.map(day => `
+        <div class="food-row">
+          <div><div class="food-name">${prettyDateLong(day.date)}</div><div class="food-macros">${day.entries} item${day.entries === 1 ? '' : 's'} · ${Math.round(day.calories)} kcal · P ${Math.round(day.protein)} g · C ${Math.round(day.carbs)} g · F ${Math.round(day.fat)} g</div></div>
+          <button class="btn btn-xs btn-soft" data-action="repeat-food-day" data-date="${day.date}">Repeat</button>
+        </div>`).join('')}
+    </div>` : ''}
 
     <div class="card">
       <div class="card-head"><h2>Today's diary</h2><span class="pill ${totals.calories > t.calories + 100 ? 'warn' : 'good'}">${Math.round(totals.calories)} / ${t.calories} kcal</span></div>
@@ -7150,6 +7162,21 @@ document.addEventListener('click', event => {
       renderApp();
       toast('Food entry removed.');
       break;
+
+    case 'repeat-food-day': {
+      if (!u) break;
+      const sourceDate = String(trigger.dataset.date || '');
+      if (!sourceDate || sourceDate >= today()) break;
+      const items = u.logs.food.filter(entry => entry.date === sourceDate);
+      if (!items.length) { toast('Nothing logged on that day.'); break; }
+      items.forEach(entry => {
+        u.logs.food.push({ ...entry, id: uid(), date: today() });
+      });
+      saveUser();
+      renderApp();
+      toast(`Copied ${items.length} item${items.length === 1 ? '' : 's'} from ${prettyDateLong(sourceDate)} into today's diary.`);
+      break;
+    }
 
     case 'delete-custom-food': {
       if (!u) break;

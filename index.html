@@ -10,7 +10,7 @@ Versions through commit c5b049e927cbf6f9edf84ab3bfba4a3482fd9e5c remain MIT-lice
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="description" content="Trainer4U — a private, local-only fitness coaching app for workouts, nutrition, recipes, wellness and progress.">
 <meta name="color-scheme" content="light dark">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-UGBLu8hHw8b4wdFBhpdvOl4IT0E4eBEbSYlNsmy98p8='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-KQ/oxNM/4Dp2tbnJtg77VW/qaIJiuqL4bnFK6DepiiM='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'">
 <meta name="theme-color" content="#0F172A">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="#0F172A">
@@ -493,6 +493,32 @@ tr:last-child td { border-bottom: 0; }
 .photo-compare-grid figcaption { font-size: .76rem; color: var(--muted); margin-top: 5px; text-align: center; }
 .photo-view-img { max-width: 100%; max-height: 70vh; border-radius: 12px; object-fit: contain; }
 @media (max-width: 560px) { .photo-grid { grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); } }
+
+/* ---------- Print (weekly plan) ---------- */
+.print-only { display: none; }
+@media print {
+  :root, html[data-theme="light"], html[data-theme="dark"] {
+    --bg: #fff; --bg-2: #fff; --panel: #fff; --panel-2: #fff;
+    --text: #111; --muted: #555; --line: #ccc;
+    --accent: #111; --accent-soft: transparent; --accent-ink: #111;
+    --good: #111; --good-soft: transparent; --warn: #111; --bad: #111;
+    --shadow-sm: none; --shadow: none;
+  }
+  body { background: #fff !important; color: #111; }
+  .card, .stat, .modal, .auth-card, .onboard {
+    --panel: #fff; --panel-2: #fff; --text: #111; --muted: #555; --line: #ccc;
+    --good: #111; --good-soft: transparent; --warn: #111; --bad: #111; --accent-ink: #111;
+    --shadow-sm: none; --shadow: none;
+  }
+  .topbar, .tabs, .foot, .toast, #modal-root, .btn, .segmented, .tune-row, .removed-row, .exercise-cues, .overload, .alert { display: none !important; }
+  body[data-tab="trainer"] .main > *:not(.section-head):not(.plan-grid):not(.print-only) { display: none !important; }
+  .print-only { display: block; color: #555; font-size: .8rem; margin-bottom: 10px; }
+  .main { padding: 0 !important; max-width: none !important; }
+  .plan-grid { display: block !important; }
+  .day-card { break-inside: avoid; page-break-inside: avoid; margin-bottom: 10px; border: 1px solid #999 !important; box-shadow: none !important; }
+  .badge { border: 1px solid #666; background: none !important; color: #111 !important; }
+  h1, h2, .day-weekday, .day-name, .exercise-name, .sub, .pill { color: #111 !important; }
+}
 
 /* ---------- Modals ---------- */
 .modal-overlay { position: fixed; inset: 0; z-index: 100; background: rgba(4, 8, 18, .72); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); display: grid; place-items: center; padding: 16px; overflow-y: auto; }
@@ -993,7 +1019,7 @@ function toggleTheme() {
    --------------------------------------------------------------------------- */
 // <logic:start>
 // App build version. A test keeps this in sync with the service worker cache name.
-const APP_VERSION = '2026.11.15.5';
+const APP_VERSION = '2026.11.15.6';
 // <logic:end>
 
 // <logic:start>
@@ -2514,6 +2540,7 @@ function renderApp() {
   if (!state.user.onboarded || state.editingProfile) { renderOnboarding(); return; }
   applyTheme();
   const u = state.user;
+  document.body.dataset.tab = state.tab;
   state.trainerMode = u.settings && u.settings.trainerMode === 'home' ? 'home' : 'gym';
   const insights = getInsights(u);
   const alertCount = insights.alerts.filter(alert => alert.level !== 'good').length;
@@ -4378,8 +4405,13 @@ function renderTrainer() {
         <h1>Trainer</h1>
         <p class="sub">A ${(GOAL_LABELS[p.goal] || 'maintain').toLowerCase()} plan built around ${esc(p.experience || 'beginner')} experience and ${p.daysPerWeek || plan.days} available day${p.daysPerWeek === 1 ? '' : 's'}. Every day includes sets, reps, rest and a form cue.</p>
       </div>
-      <span class="pill accent">${plan.days} day${plan.days === 1 ? '' : 's'} / week</span>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <button class="btn btn-sm btn-ghost" data-action="print-plan" title="Print this week or save it as a PDF">🖨 Print week</button>
+        <span class="pill accent">${plan.days} day${plan.days === 1 ? '' : 's'} / week</span>
+      </div>
     </div>
+
+    <div class="print-only">Trainer4U · ${mode === 'gym' ? 'Gym' : 'Home'} plan · week of ${prettyDate(weekStart())} · ${esc(u.profile.name || u.username)}</div>
 
     <div class="card trainer-switch">
       <div class="segmented" role="tablist" aria-label="Workout location">
@@ -4407,7 +4439,7 @@ function renderTrainer() {
       <ul class="why-list">${planRationale(plan, u).map(reason => `<li>${esc(reason)}</li>`).join('')}</ul>
     </div>
 
-    <div class="grid grid-2">
+    <div class="grid grid-2 plan-grid">
       ${plan.schedule.map(day => {
         const isToday = day.weekday === todayWeekday;
         if (day.rest) {
@@ -7037,6 +7069,10 @@ document.addEventListener('click', event => {
       renderApp();
       return;
     }
+    case 'print-plan':
+      window.print();
+      break;
+
     case 'rest-timer':
       startRestTimer(Number(trigger.dataset.seconds), trigger.dataset.name || '');
       break;

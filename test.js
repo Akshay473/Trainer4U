@@ -45,7 +45,7 @@ const memoryStorage = (() => {
   return { getItem: key => values.has(key) ? values.get(key) : null, setItem: (key, value) => values.set(key, String(value)) };
 })();
 const factory = new Function('ACTIVITY_MULTIPLIERS', 'GOAL_LABELS', 'today', 'dateOffset', 'localStorage', 'DB_KEY', 'SCHEMA_VERSION', 'uid',
-  code + '\nreturn { clamp, round, safeNum, sortedWeights, currentWeight, weightProgress, workoutsLast7, sleepAverage, loggedDays, bmiFor, bmiCategory, weightTrendPerWeek, weightTrendCategory, calorieDrift, proteinGap, sleepDeficit, macroTargets, baseTargets, getInsights, validateOnboarding, validateCustomFood, gramsForPortion, foodEntryFromFood, validateImportData, recipeMatchScore, groceryItemsForRecipe, groceryMerge, groceryText, weekStart, loadDB, esc, escapeHTML, FOOD_DB, filterFoodItems, APP_VERSION, userUnits, kgToLb, lbToKg, cmToIn, inToCm, weightUnit, lengthUnit, displayWeight, displayLength, parseWeightInput, parseLengthInput, heightDisplay, planRationale, isEncryptedExport, validateEncryptedEnvelope, EXERCISES, HOLD_EXERCISES, injuryAvoids, hasEquipment, equipmentScore, repRangeFor, swapMap, swapCandidates, applyPlanSwaps, sessionSetDone, workoutDraftFromSession, sessionBests, isPlateaued, workoutVolume, estimatedOneRepMax, personalRecords, newRecords, FORM_FIGURES, formatRestTime, planEditsFor, setPlanEdit, applyPlanEdits, filterWorkoutHistory, deloadActive, deloadWeight, consistencyCalendar, healthyWeightRange };\n');
+  code + '\nreturn { clamp, round, safeNum, sortedWeights, currentWeight, weightProgress, workoutsLast7, sleepAverage, loggedDays, bmiFor, bmiCategory, weightTrendPerWeek, weightTrendCategory, calorieDrift, proteinGap, sleepDeficit, macroTargets, baseTargets, getInsights, validateOnboarding, validateCustomFood, gramsForPortion, foodEntryFromFood, validateImportData, recipeMatchScore, groceryItemsForRecipe, groceryMerge, groceryText, weekStart, loadDB, esc, escapeHTML, FOOD_DB, filterFoodItems, APP_VERSION, userUnits, kgToLb, lbToKg, cmToIn, inToCm, weightUnit, lengthUnit, displayWeight, displayLength, parseWeightInput, parseLengthInput, heightDisplay, planRationale, isEncryptedExport, validateEncryptedEnvelope, EXERCISES, HOLD_EXERCISES, injuryAvoids, hasEquipment, equipmentScore, repRangeFor, swapMap, swapCandidates, applyPlanSwaps, sessionSetDone, workoutDraftFromSession, sessionBests, isPlateaued, workoutVolume, estimatedOneRepMax, personalRecords, newRecords, FORM_FIGURES, formatRestTime, planEditsFor, setPlanEdit, applyPlanEdits, filterWorkoutHistory, deloadActive, deloadWeight, consistencyCalendar, healthyWeightRange, lookRecommendations };\n');
 const L = factory(ACTIVITY_MULTIPLIERS, GOAL_LABELS, todayMock, dateOffsetMock, memoryStorage, 'trainer4u_db_v2', 2, () => 'test-food-id');
 
 function mkUser(over = {}) {
@@ -491,6 +491,35 @@ const rangeF = L.healthyWeightRange({ age: 30, sex: 'female', height: 160 });
 check('healthy range for a 160 cm woman', rangeF.low === 47.4 && rangeF.high === 61.4);
 const rangeOld = L.healthyWeightRange({ age: 70, sex: 'female', height: 160 });
 check('healthy range shifts up for older adults', rangeOld.low === 56.3 && rangeOld.high === 69.1);
+
+// Look section recommendations
+const lookSafe = L.lookRecommendations({ style: 'hero', face: 'unsure', skin: 'unsure', hairType: 'unsure', hairThickness: 'unsure' });
+check('look plan covers skin, style and hair with safe defaults', lookSafe.skincare.length >= 2 && lookSafe.hairstyles.length >= 1 && lookSafe.haircare.length >= 2);
+check('look safe hairstyle suits most faces', lookSafe.hairstyles[0].includes('almost every face'));
+check('oily skin gets a gel routine', L.lookRecommendations({ skin: 'oily', sensitive: 'no' }).skincare.some(s => s.includes('gel')));
+check('dry skin gets damp-skin moisturising', L.lookRecommendations({ skin: 'dry', sensitive: 'no' }).skincare.some(s => s.includes('damp')));
+check('curly hair gets gentle care', L.lookRecommendations({ hairType: 'curly' }).haircare.some(s => s.includes('wide-tooth')));
+check('thin hair gets shorter-fuller advice', L.lookRecommendations({ hairThickness: 'thin' }).hairstyles.some(s => s.includes('fuller')));
+const lookVillain = L.lookRecommendations({ style: 'villain', face: 'square' });
+check('villain gets sharper styles', lookVillain.hairstyles[0].includes('buzz') || lookVillain.hairstyles[0].includes('shaved parting'));
+check('hero and villain finish differently', L.lookRecommendations({ style: 'hero' }).finishing !== L.lookRecommendations({ style: 'villain' }).finishing);
+check('every skin routine carries the patch-test warning', ['oily', 'dry', 'normal', 'unsure'].every(s => L.lookRecommendations({ skin: s }).skincare.some(x => x.includes('patch'))));
+check('sensitive yes gets the gentle routine', (r => r.skincare.some(s => s.includes('dermatologist')) && !r.skincare.join(' ').includes('salicylic'))(L.lookRecommendations({ sensitive: 'yes', skin: 'oily' })));
+check('sensitive not-sure also gets the gentle routine', (r => r.skincare.some(s => s.includes('dermatologist')) && !r.skincare.join(' ').includes('salicylic'))(L.lookRecommendations({ sensitive: 'unsure', skin: 'oily' })));
+check('missing sensitive answer defaults to gentle', !L.lookRecommendations({ skin: 'oily' }).skincare.join(' ').includes('salicylic'));
+check('sensitive haircare drops strong treatments', L.lookRecommendations({ sensitive: 'yes', hairType: 'curly' }).haircare[0].includes('mild shampoo'));
+check('non-sensitive keeps full routines', (r => r.skincare.some(s => s.includes('gel')) && !r.haircare.join(' ').includes('until a dermatologist'))(L.lookRecommendations({ sensitive: 'no', skin: 'oily', hairType: 'curly' })));
+check('every look combination gives complete, clean advice', (() => {
+  const opts = { style: ['hero', 'villain', 'unsure', undefined], sensitive: ['yes', 'no', 'unsure', undefined], face: ['round', 'oval', 'square', 'long', 'heart', 'unsure', undefined], skin: ['oily', 'dry', 'normal', 'unsure', undefined], hairType: ['straight', 'wavy', 'curly', 'unsure', undefined], hairThickness: ['thin', 'thick', 'unsure', undefined] };
+  for (const style of opts.style) for (const sensitive of opts.sensitive) for (const face of opts.face) for (const skin of opts.skin) for (const hairType of opts.hairType) for (const hairThickness of opts.hairThickness) {
+    if (sensitive !== undefined && L.lookRecommendations({ style, sensitive, face, skin, hairType, hairThickness }).skincare.join(' ').includes('salicylic') && sensitive !== 'no') return false;
+    const r = L.lookRecommendations({ style, face, skin, hairType, hairThickness });
+    const all = [...r.skincare, ...r.hairstyles, ...r.haircare, r.finishing].join(' ');
+    if (!r.skincare.length || !r.hairstyles.length || !r.haircare.length || !r.finishing) return false;
+    if (/undefined|NaN|\[object/.test(all)) return false;
+  }
+  return true;
+})());
 
 // Static release checks for CSP, icons and the removed insecure hash fallback.
 const inlineScript = /<script>([\s\S]*?)<\/script>/.exec(html)[1];

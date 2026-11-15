@@ -10,7 +10,7 @@ Versions through commit c5b049e927cbf6f9edf84ab3bfba4a3482fd9e5c remain MIT-lice
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="description" content="Trainer4U — a private, local-only fitness coaching app for workouts, nutrition, recipes, wellness and progress.">
 <meta name="color-scheme" content="light dark">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-RH2j2tmmAO57UrNmpqy3zqQuP08EA0NJqXFJUVqa5UM='; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-GP139ASmETPe9Hi3hpasWEkOk/3/zC0N604nDIxWF0c='; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'">
 <meta name="theme-color" content="#0F172A">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="#0F172A">
@@ -421,6 +421,11 @@ select { appearance: none; background-image: linear-gradient(45deg, transparent 
 .cal-cell.food { background: var(--good); }
 .cal-cell.both { background: linear-gradient(135deg, var(--accent) 50%, var(--good) 50%); }
 .cal-cell.future { background: transparent; border: 1px dashed var(--line); }
+.look-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 8px; margin-top: 10px; }
+.look-card { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; padding: 12px 8px; border: 1.5px solid var(--line); border-radius: var(--radius); background: var(--panel); cursor: pointer; text-align: center; color: var(--text); font: inherit; min-height: 84px; }
+.look-card.active { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.look-card small { color: var(--muted); font-size: 11px; }
+.look-svg { width: 42px; height: 42px; color: var(--accent); }
 
 /* ---------- Nutritionist ---------- */
 .macro-bar + .macro-bar { margin-top: 12px; }
@@ -703,6 +708,8 @@ const state = {
   chefIngredients: '',
   chefFilters: { cuisine: 'All', diet: 'All', meal: 'All' },
   historyFilters: { period: 'all', query: '' },
+  lookEditing: false,
+  lookDraft: null,
   session: null,
   workoutDraft: null,
   measure: 'waist'
@@ -713,6 +720,7 @@ const TABS = [
   { id: 'trainer', label: 'Trainer', icon: '🏋️' },
   { id: 'nutritionist', label: 'Nutritionist', icon: '🥗' },
   { id: 'chef', label: 'Chef', icon: '👨‍🍳' },
+  { id: 'look', label: 'Look', icon: '✨' },
   { id: 'doctor', label: 'Health check', icon: '🩺' },
   { id: 'progress', label: 'Progress', icon: '📈' }
 ];
@@ -934,7 +942,7 @@ function toggleTheme() {
    --------------------------------------------------------------------------- */
 // <logic:start>
 // App build version. A test keeps this in sync with the service worker cache name.
-const APP_VERSION = '2026.11.15.2';
+const APP_VERSION = '2026.11.15.4';
 // <logic:end>
 
 // <logic:start>
@@ -1905,6 +1913,91 @@ function healthyWeightRange(profile) {
 }
 // <logic:end>
 
+// <logic:start>
+function lookRecommendations(look) {
+  const l = look || {};
+  const style = l.style === 'villain' ? 'villain' : 'hero';
+  const face = l.face || 'unsure';
+  const skin = l.skin || 'unsure';
+  const hairType = l.hairType || 'unsure';
+  const thick = l.hairThickness || 'unsure';
+
+  const sensitive = l.sensitive !== 'no';
+  const skincare = [];
+  if (sensitive) {
+    skincare.push('Morning: rinse with water or use a mild, fragrance-free cleanser, then a plain moisturiser and sunscreen (SPF 30 or more).');
+    skincare.push('Night: the same gentle wash and moisturiser. Nothing else for now - no scrubs, peels or strong actives.');
+    skincare.push('If you ever try something new, test it on a small patch of your inner arm for 2 days first. Burning, peeling or lasting redness means stop.');
+    skincare.push('See a dermatologist before adding anything more. Take this routine along - it is a safe starting point they can build on.');
+  } else if (skin === 'oily') {
+    skincare.push('Morning: wash with a gentle foaming face wash, then a light gel moisturiser and sunscreen (SPF 30 or more).');
+    skincare.push('Night: wash again before bed. If pimples show up often, try a face wash that says "salicylic acid" on the front, 2-3 nights a week.');
+    skincare.push('Skip heavy creams and coconut oil on the face - they can clog oily skin.');
+  } else if (skin === 'dry') {
+    skincare.push('Morning: rinse with water or a creamy cleanser, then a thick moisturiser and sunscreen (SPF 30 or more).');
+    skincare.push('Night: gentle wash, then moisturiser while the skin is still a little damp.');
+    skincare.push('Keep showers short and lukewarm - hot water dries skin out more.');
+  } else {
+    skincare.push('Morning: gentle face wash, moisturiser, and sunscreen (SPF 30 or more).');
+    skincare.push('Night: wash off the day and moisturise before bed.');
+  }
+  skincare.push('Try any new product on a small patch of your inner arm for 2 days first. Burning, peeling or lasting redness means stop.');
+
+  const faceIdeas = {
+    round: {
+      hero: 'Add height on top with short sides - a textured crop or a neat side part with volume.',
+      villain: 'A high skin fade with the top slicked straight back - sharp and lengthening.'
+    },
+    oval: {
+      hero: 'Most cuts suit you - a classic side part or a short quiff is an easy win.',
+      villain: 'A sharp undercut or a tight buzz shows off the even shape.'
+    },
+    square: {
+      hero: 'Clean and short works with your strong edges - a crew cut or a short side part.',
+      villain: 'A buzz cut or a quiff with a shaved parting line leans into the strong lines.'
+    },
+    long: {
+      hero: 'Keep the sides fuller and skip extra height - a side-swept fringe works well.',
+      villain: 'A low fade that keeps the top flat - sharp without adding height.'
+    },
+    heart: {
+      hero: 'Medium layers with a fringe balance a wider forehead.',
+      villain: 'A textured fringe with tight tapered sides - sharp up top, clean below.'
+    },
+    unsure: {
+      hero: 'Safe starter: short on the sides, a little length on top, neatly combed - it suits almost every face.',
+      villain: 'Safe starter: a mid fade with a tidy, longer top - sharp but hard to get wrong.'
+    }
+  };
+  const hairstyles = [(faceIdeas[face] || faceIdeas.unsure)[style]];
+  if (hairType === 'straight') hairstyles.push('Straight hair holds sharp lines well - keep the sides tidy every 3-4 weeks.');
+  else if (hairType === 'wavy') hairstyles.push('Let the wave do the work: medium length on top, and ask the barber to follow your natural texture.');
+  else if (hairType === 'curly') hairstyles.push('Keep the curls - ask for a cut that shapes them instead of fighting them.');
+  if (thick === 'thin') hairstyles.push('Thinner hair looks fuller when it is shorter - skip heavy gels that clump it together.');
+  else if (thick === 'thick') hairstyles.push('With thick hair, ask the barber to thin out the bulk so the shape sits closer.');
+
+  const haircare = [];
+  if (sensitive) haircare.push('Gentle scalp care: mild shampoo, lukewarm water, no very hot tools and no strong styling products until a dermatologist says otherwise.');
+  if (hairType === 'curly') {
+    haircare.push('Shampoo 1-2 times a week; condition every time. Curly hair dries out fast.');
+    haircare.push('Detangle only when wet, with fingers or a wide-tooth comb.');
+  } else if (hairType === 'wavy') {
+    haircare.push('Shampoo 2-3 times a week and condition every wash.');
+    haircare.push('Scrunch dry with a towel - rubbing makes frizz.');
+  } else {
+    haircare.push('Shampoo every day or every other day; a little conditioner on the ends.');
+    haircare.push('Pat dry instead of rubbing hard.');
+  }
+  haircare.push('Use lukewarm water, not hot. See a dermatologist if you notice sudden hair fall or bald patches.');
+
+  const finishing = style === 'villain'
+    ? 'Finishing touch: sharp beard lines or a full clean shave - nothing in between.'
+    : 'Finishing touch: clean shaven or light, tidy stubble with neat edges.';
+
+  return { skincare, hairstyles, haircare, finishing };
+}
+// <logic:end>
+
 function loggingStreak(user) {
   let streak = 0;
   for (let i = 0; i < 365; i++) {
@@ -2379,6 +2472,7 @@ function renderApp() {
     trainer: renderTrainer,
     nutritionist: renderNutritionist,
     chef: renderChef,
+    look: renderLook,
     doctor: renderDoctor,
     progress: renderProgress
   };
@@ -4787,6 +4881,131 @@ function renderChef() {
 }
 
 /* ---------- Health check / Doctor ---------- */
+const FACE_SHAPES = [
+  { id: 'round', label: 'Round', hint: 'as wide as it is long', svg: '<circle cx="24" cy="24" r="17"/>' },
+  { id: 'oval', label: 'Oval', hint: 'a bit longer than wide', svg: '<ellipse cx="24" cy="24" rx="14" ry="18"/>' },
+  { id: 'square', label: 'Square', hint: 'strong straight edges', svg: '<rect x="9" y="8" width="30" height="32" rx="8"/>' },
+  { id: 'long', label: 'Long', hint: 'clearly taller than wide', svg: '<ellipse cx="24" cy="24" rx="11" ry="19"/>' },
+  { id: 'heart', label: 'Heart', hint: 'wide top, small chin', svg: '<path d="M9 11 Q24 4 39 11 Q39 27 24 41 Q9 27 9 11 Z"/>' }
+];
+const HAIR_TYPES = [
+  { id: 'straight', label: 'Straight', hint: 'lies flat on its own', svg: '<path d="M12 8 L20 40 M24 8 L32 40 M36 8 L44 40"/>' },
+  { id: 'wavy', label: 'Wavy', hint: 'bends in loose S shapes', svg: '<path d="M8 16 Q14 8 20 16 T32 16 T44 16 M8 32 Q14 24 20 32 T32 32 T44 32"/>' },
+  { id: 'curly', label: 'Curly', hint: 'forms curls or coils', svg: '<path d="M8 22 a5 5 0 1 1 10 0 a5 5 0 1 1 10 0 a5 5 0 1 1 10 0"/>' }
+];
+
+function lookSvg(inner) {
+  return `<svg class="look-svg" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true">${inner}</svg>`;
+}
+
+function lookDraft() {
+  return Object.assign({ style: 'hero', sensitive: 'unsure', face: 'unsure', skin: 'unsure', hairType: 'unsure', hairThickness: 'unsure' }, (state.user && state.user.look) || {});
+}
+
+function lookOptionCard(draft, key, value, title, hint, icon) {
+  return `<button type="button" class="look-card ${draft[key] === value ? 'active' : ''}" data-action="look-pick" data-key="${key}" data-value="${value}" aria-pressed="${draft[key] === value}">${icon || ''}<strong>${esc(title)}</strong><small>${esc(hint)}</small></button>`;
+}
+
+function renderLook() {
+  const u = state.user;
+  if (!u.look || state.lookEditing) {
+    const draft = state.lookDraft || lookDraft();
+    return `
+    <div class="section-head">
+      <div><h1>Your look</h1><p class="sub">Tap what fits. "Not sure" is always fine - you get safe picks that work for most people.</p></div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><h2>1 · Pick your vibe</h2></div>
+      <div class="look-grid">
+        <button type="button" class="look-card ${draft.style === 'hero' ? 'active' : ''}" data-action="look-style" data-value="hero" aria-pressed="${draft.style === 'hero'}"><span style="font-size:26px" aria-hidden="true">🌟</span><strong>Hero material</strong><small>clean, bright, friendly</small></button>
+        <button type="button" class="look-card ${draft.style === 'villain' ? 'active' : ''}" data-action="look-style" data-value="villain" aria-pressed="${draft.style === 'villain'}"><span style="font-size:26px" aria-hidden="true">🌑</span><strong>Villain material</strong><small>sharp, dark, intense</small></button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><h2>2 · Any allergies or sensitive skin?</h2></div>
+      <p class="tiny muted">Also tap Yes for skin or scalp problems - rashes, eczema, dandruff that won't go, or hair fall.</p>
+      <div class="look-grid">
+        ${lookOptionCard(draft, 'sensitive', 'yes', 'Yes', 'you get the gentlest routine', '')}
+        ${lookOptionCard(draft, 'sensitive', 'no', 'No', 'my skin handles most things', '')}
+        ${lookOptionCard(draft, 'sensitive', 'unsure', 'Not sure', 'safest: the gentle routine', '')}
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><h2>3 · Which shape is closest to your face?</h2></div>
+      <p class="tiny muted">Hair back, look in the mirror. Close enough is fine.</p>
+      <div class="look-grid">
+        ${FACE_SHAPES.map(f => lookOptionCard(draft, 'face', f.id, f.label, f.hint, lookSvg(f.svg))).join('')}
+        ${lookOptionCard(draft, 'face', 'unsure', 'Not sure', 'safe picks that suit most faces', '')}
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><h2>4 · How does your skin feel by the afternoon?</h2></div>
+      <div class="look-grid">
+        ${lookOptionCard(draft, 'skin', 'oily', 'Shiny or greasy', 'oily', '')}
+        ${lookOptionCard(draft, 'skin', 'dry', 'Tight or flaky', 'dry', '')}
+        ${lookOptionCard(draft, 'skin', 'normal', 'Pretty comfortable', 'normal', '')}
+        ${lookOptionCard(draft, 'skin', 'unsure', 'Not sure', 'simple routine that suits most skin', '')}
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><h2>5 · What does your hair do on its own?</h2></div>
+      <div class="look-grid">
+        ${HAIR_TYPES.map(h => lookOptionCard(draft, 'hairType', h.id, h.label, h.hint, lookSvg(h.svg))).join('')}
+        ${lookOptionCard(draft, 'hairType', 'unsure', 'Not sure', 'easy picks for any hair', '')}
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><h2>6 · How much hair do you have?</h2></div>
+      <div class="look-grid">
+        ${lookOptionCard(draft, 'hairThickness', 'thin', 'On the thin side', 'scalp shows easily', '')}
+        ${lookOptionCard(draft, 'hairThickness', 'thick', 'Thick', 'lots of it, hard to flatten', '')}
+        ${lookOptionCard(draft, 'hairThickness', 'unsure', 'Not sure', 'works either way', '')}
+      </div>
+    </div>
+
+    <div style="display:flex;gap:8px;margin-top:4px">
+      <button class="btn btn-primary" data-action="look-save">${u.look ? 'Save changes' : 'See my plan'}</button>
+      ${u.look ? '<button class="btn btn-ghost" data-action="look-cancel">Cancel</button>' : ''}
+    </div>`;
+  }
+
+  const rec = lookRecommendations(u.look);
+  const skinNames = { oily: 'oily skin', dry: 'dry skin', normal: 'balanced skin', unsure: 'simple routine' };
+  return `
+    <div class="section-head">
+      <div><h1>Your look</h1><p class="sub">${u.look.style === 'villain' ? 'Villain material - sharp, dark, intense.' : 'Hero material - clean, bright, friendly.'}</p></div>
+      <button class="btn btn-secondary btn-sm" data-action="look-edit">Edit answers</button>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><h2>Skincare routine</h2><span class="pill">${u.look.sensitive !== 'no' ? 'gentle routine' : skinNames[u.look.skin] || skinNames.unsure}</span></div>
+      <ul class="why-list">${rec.skincare.map(s => `<li>${esc(s)}</li>`).join('')}</ul>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><h2>Hairstyle ideas</h2></div>
+      <ul class="why-list">${rec.hairstyles.map(s => `<li>${esc(s)}</li>`).join('')}</ul>
+      <p class="tiny muted" style="margin-top:8px">Show the one you like to your barber - they will adjust it to your hair.</p>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><h2>Haircare routine</h2></div>
+      <ul class="why-list">${rec.haircare.map(s => `<li>${esc(s)}</li>`).join('')}</ul>
+    </div>
+
+    <div class="card">
+      <p style="margin:0">${esc(rec.finishing)}</p>
+    </div>
+
+    <p class="tiny muted" style="margin-top:10px">General guide, not medical advice. For ongoing skin or hair problems, see a dermatologist.</p>`;
+}
+
 function renderDoctor() {
   const u = state.user;
   const p = u.profile;
@@ -5811,6 +6030,7 @@ function normalizeUser(user) {
   user.settings = user.settings || { theme: '' };
   user.settings.trainerMode = user.settings.trainerMode === 'home' ? 'home' : 'gym';
   user.settings.units = user.settings.units === 'imperial' ? 'imperial' : 'metric';
+  if (user.look && typeof user.look !== 'object') user.look = null;
   user.key = user.key || String(user.username || '').toLowerCase();
   return user;
 }
@@ -6479,6 +6699,44 @@ document.addEventListener('click', event => {
       if (!state.user) return;
       delete state.user.settings.deloadUntil;
       saveUser();
+      renderApp();
+      return;
+    }
+    case 'look-style': {
+      const draft = state.lookDraft || lookDraft();
+      draft.style = trigger.dataset.value === 'villain' ? 'villain' : 'hero';
+      state.lookDraft = draft;
+      renderApp();
+      return;
+    }
+    case 'look-pick': {
+      const draft = state.lookDraft || lookDraft();
+      if (['face', 'skin', 'hairType', 'hairThickness', 'sensitive'].includes(trigger.dataset.key)) {
+        draft[trigger.dataset.key] = trigger.dataset.value;
+        state.lookDraft = draft;
+        renderApp();
+      }
+      return;
+    }
+    case 'look-save': {
+      if (!state.user) return;
+      state.user.look = Object.assign({}, state.lookDraft || lookDraft());
+      state.lookDraft = null;
+      state.lookEditing = false;
+      saveUser();
+      renderApp();
+      return;
+    }
+    case 'look-edit': {
+      if (!state.user) return;
+      state.lookDraft = lookDraft();
+      state.lookEditing = true;
+      renderApp();
+      return;
+    }
+    case 'look-cancel': {
+      state.lookDraft = null;
+      state.lookEditing = false;
       renderApp();
       return;
     }

@@ -104,7 +104,7 @@ Trainer4U provides general fitness and wellness information for healthy adults. 
 - [x] GitHub Actions CI
 - [x] Custom foods with personal serving sizes and portion-based logging
 - [ ] Workout reminders (opt-in)
-- [ ] Water and sleep quick-log widgets
+- [x] Water and sleep quick-log widgets
 - [ ] Printable weekly plan
 - [ ] Unit toggle (kg/lb, cm/ft-in)
 - [ ] Optional encrypted backups

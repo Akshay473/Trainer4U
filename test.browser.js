@@ -585,6 +585,24 @@ let browser;
   await page.emulateMedia({ media: 'screen' });
   check('screen styles restore after print emulation', await page.evaluate(() => getComputedStyle(document.querySelector('.topbar')).display !== 'none'));
 
+  // --- Dashboard quick log (water + sleep) ---
+  await tab(page, 'dashboard');
+  check('dashboard has the quick log card', await page.evaluate(() => !!document.querySelector('.quick-log')));
+  await page.click('.quick-log [data-action="hydrate"][data-delta="1"]');
+  await page.waitForFunction(() => document.querySelector('#quick-cups') && document.querySelector('#quick-cups').textContent.trim().startsWith('1'));
+  check('quick log +1 cup increments the counter', true);
+  await page.click('.quick-log [data-action="hydrate"][data-delta="-1"]');
+  await page.click('.quick-log [data-action="hydrate"][data-delta="-1"]');
+  await page.waitForFunction(() => document.querySelector('#quick-cups') && document.querySelector('#quick-cups').textContent.trim().startsWith('0'));
+  check('quick log cups never drop below zero', true);
+  await page.fill('#quick-sleep-hours', '7.5');
+  await page.selectOption('#quick-sleep-quality', '4');
+  await page.click('.quick-log button[type="submit"]');
+  await page.waitForFunction(() => state.user.logs.sleep.some(s => s.hours === 7.5 && s.quality === 4));
+  check('quick sleep entry is stored', true);
+  await tab(page, 'doctor');
+  check('doctor sleep log shows the quick entry', await page.evaluate(() => document.querySelector('.main').textContent.includes('7.5')));
+
   await signup.context.setOffline(false);
 
   await tab(page, 'dashboard');

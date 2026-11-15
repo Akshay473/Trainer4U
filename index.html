@@ -10,7 +10,7 @@ Versions through commit c5b049e927cbf6f9edf84ab3bfba4a3482fd9e5c remain MIT-lice
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="description" content="Trainer4U — a private, local-only fitness coaching app for workouts, nutrition, recipes, wellness and progress.">
 <meta name="color-scheme" content="light dark">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-KQ/oxNM/4Dp2tbnJtg77VW/qaIJiuqL4bnFK6DepiiM='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-CqvvyKGtg3YF5T+RlkcCNeDHtIsnFp8n7KQR8AGemO4='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'">
 <meta name="theme-color" content="#0F172A">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="#0F172A">
@@ -493,6 +493,17 @@ tr:last-child td { border-bottom: 0; }
 .photo-compare-grid figcaption { font-size: .76rem; color: var(--muted); margin-top: 5px; text-align: center; }
 .photo-view-img { max-width: 100%; max-height: 70vh; border-radius: 12px; object-fit: contain; }
 @media (max-width: 560px) { .photo-grid { grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); } }
+
+/* ---------- Quick log (dashboard) ---------- */
+.quick-log { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.quick-item { border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 12px; display: flex; flex-direction: column; gap: 8px; margin: 0; }
+.quick-label { font-size: .78rem; color: var(--muted); font-weight: 600; }
+.quick-value { font-size: 1.3rem; font-weight: 700; }
+.quick-value small { font-size: .75rem; color: var(--muted); font-weight: 500; }
+.quick-sleep-row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.quick-sleep-row input { width: 84px; }
+.quick-sleep-row select { flex: 1; min-width: 110px; }
+@media (max-width: 640px) { .quick-log { grid-template-columns: 1fr; } }
 
 /* ---------- Print (weekly plan) ---------- */
 .print-only { display: none; }
@@ -1019,7 +1030,7 @@ function toggleTheme() {
    --------------------------------------------------------------------------- */
 // <logic:start>
 // App build version. A test keeps this in sync with the service worker cache name.
-const APP_VERSION = '2026.11.15.6';
+const APP_VERSION = '2026.11.15.7';
 // <logic:end>
 
 // <logic:start>
@@ -2647,6 +2658,8 @@ function renderDashboard() {
     maintain: 'Stay consistent. Protect what you built.'
   };
   const units = userUnits(u);
+  const quickCups = Number(u.logs.hydration[today()] || 0);
+  const quickTarget = hydrationTarget(u);
   const wpChangeDisp = displayWeight(wp.change, units);
   const changeText = wp.change === 0
     ? 'No change since your starting weight.'
@@ -2679,6 +2692,30 @@ function renderDashboard() {
       <div class="stat"><div class="stat-value">${Math.round(totals.protein)}<small>/${t.protein} g</small></div><div class="stat-label">Protein today</div><div class="stat-sub">${t.fat} g fat target</div></div>
       <div class="stat"><div class="stat-value">${weekWorkouts}<small>/${p.daysPerWeek}</small></div><div class="stat-label">Workouts this week</div><div class="stat-sub">${plan.days} scheduled after coaching</div></div>
       <div class="stat"><div class="stat-value">${sleep === null ? '—' : round(sleep, 1)}<small>h</small></div><div class="stat-label">Sleep average</div><div class="stat-sub">${streak} day logging streak</div></div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><h2>Quick log</h2><span class="pill">${prettyDate(today())}</span></div>
+      <div class="quick-log">
+        <div class="quick-item">
+          <div class="quick-label">💧 Water today</div>
+          <div class="quick-value" id="quick-cups">${quickCups}<small> / ${quickTarget} cups</small></div>
+          <div class="btn-row">
+            <button class="btn btn-xs btn-soft" data-action="hydrate" data-delta="1">+ 1 cup</button>
+            <button class="btn btn-xs btn-ghost" data-action="hydrate" data-delta="-1" aria-label="Remove one cup">− 1</button>
+          </div>
+        </div>
+        <form class="quick-item" data-form="add-sleep">
+          <div class="quick-label">😴 Last night's sleep</div>
+          <input type="hidden" name="date" value="${today()}">
+          <div class="quick-sleep-row">
+            <input id="quick-sleep-hours" type="number" name="hours" min="0" max="16" step="0.25" placeholder="7.5" required aria-label="Hours slept">
+            <select id="quick-sleep-quality" name="quality" aria-label="Sleep quality"><option value="1">1 · Poor</option><option value="2">2 · Restless</option><option value="3" selected>3 · OK</option><option value="4">4 · Good</option><option value="5">5 · Excellent</option></select>
+            <button class="btn btn-xs btn-primary" type="submit">Log</button>
+          </div>
+          <p class="tiny muted" style="margin:0">Water and sleep drive the coach's notes and the plan's difficulty.</p>
+        </form>
+      </div>
     </div>
 
     <div class="grid grid-2">

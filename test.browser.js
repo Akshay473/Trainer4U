@@ -399,6 +399,29 @@ let browser;
     return state.user.logs.food.filter(e => e.date === today()).every(e => !yesterdayIds.has(e.id));
   }));
 
+  // --- Saved meals ---
+  await page.click('[data-action="open-save-meal"]');
+  await page.waitForSelector('form[data-form="save-meal"]');
+  await axe(page, 'save meal modal');
+  await page.fill('#saved-meal-name', 'Usual breakfast');
+  await page.selectOption('#saved-meal-slot', 'Breakfast');
+  await page.click('form[data-form="save-meal"] button[type="submit"]');
+  await page.waitForSelector('[role="dialog"]', { state: 'detached' });
+  check('meal is saved with its items', await page.evaluate(() => {
+    const m = (state.user.savedMeals || [])[0];
+    return !!m && m.name === 'Usual breakfast' && m.meal === 'Breakfast' && m.items.length === 1 && m.items[0].name === 'Dosa';
+  }));
+  const todayBeforeSavedLog = await page.evaluate(() => state.user.logs.food.filter(e => e.date === today()).length);
+  await page.click('[data-action="log-saved-meal"]');
+  await page.waitForFunction(count => state.user.logs.food.filter(e => e.date === today()).length === count + 1, todayBeforeSavedLog);
+  check('logging a saved meal copies items into today', true);
+  check('saved meal copies get fresh ids', await page.evaluate(() => {
+    const ids = state.user.logs.food.map(e => e.id);
+    return new Set(ids).size === ids.length;
+  }));
+  await page.click('[data-action="delete-saved-meal"]');
+  check('saved meal deletes cleanly', await page.evaluate(() => (state.user.savedMeals || []).length === 0));
+
   await tab(page, 'progress');
   check('weight form defaults to metric', (await page.locator('label[for="weight-kg"]').textContent()).includes('kg'));
   await page.click('[data-action="open-settings"]');

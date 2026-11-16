@@ -360,6 +360,20 @@ try {
   L.validateImportData({ profile: validExport.profile, logs: validExport.logs, customFoods: [customFood, customFood], settings: validExport.settings });
 } catch (error) { duplicateCustomIdsRejected = true; }
 check('duplicate custom food IDs rejected', duplicateCustomIdsRejected);
+const savedMealImport = L.validateImportData({
+  profile: validExport.profile,
+  logs: validExport.logs,
+  savedMeals: [{ id: 'sm-1', name: 'Usual breakfast', meal: 'Breakfast', items: [{ name: 'Dosa', grams: 100, calories: 168, protein: 4, carbs: 29, fat: 3.7, meal: 'Breakfast' }] }],
+  settings: validExport.settings
+});
+eq('saved meal survives import', savedMealImport.savedMeals[0].name, 'Usual breakfast');
+eq('saved meal items survive import', savedMealImport.savedMeals[0].items.length, 1);
+eq('older import gets an empty saved meal list', cleaned.savedMeals.length, 0);
+let emptyMealNameRejected = false;
+try {
+  L.validateImportData({ profile: validExport.profile, logs: validExport.logs, savedMeals: [{ name: '  ', meal: 'Breakfast', items: [{ name: 'Dosa' }] }], settings: validExport.settings });
+} catch (error) { emptyMealNameRejected = true; }
+check('saved meal without a name rejected', emptyMealNameRejected);
 const xssText = '<svg onload=window.__importXss=1>';
 const xssImport = L.validateImportData({
   profile: { ...validExport.profile, name: xssText },

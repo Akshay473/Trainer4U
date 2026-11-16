@@ -10,7 +10,7 @@ Versions through commit c5b049e927cbf6f9edf84ab3bfba4a3482fd9e5c remain MIT-lice
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="description" content="Trainer4U — a private, local-only fitness coaching app for workouts, nutrition, recipes, wellness and progress.">
 <meta name="color-scheme" content="light dark">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-cRfkrAp3eOYEmx/FuaWvxYH6sL7IJrtUlipnvLZzMTA='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-mj17q1tLnkO2c8JQRHeOsSY38kuuW5yMNPo2EP9fkDg='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'">
 <meta name="theme-color" content="#0F172A">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="#0F172A">
@@ -1035,7 +1035,7 @@ function toggleTheme() {
    --------------------------------------------------------------------------- */
 // <logic:start>
 // App build version. A test keeps this in sync with the service worker cache name.
-const APP_VERSION = '2026.11.15.10';
+const APP_VERSION = '2026.11.16.11';
 // <logic:end>
 
 // <logic:start>
@@ -1542,6 +1542,7 @@ function createUser(username, salt, hash) {
     },
     logs: blankLogs(),
     customFoods: [],
+    savedMeals: [],
     settings: { theme: '', trainerMode: 'gym', units: 'metric' }
   };
 }
@@ -4747,7 +4748,7 @@ function renderNutritionist() {
     </div>` : ''}
 
     <div class="card">
-      <div class="card-head"><h2>Today's diary</h2><span class="pill ${totals.calories > t.calories + 100 ? 'warn' : 'good'}">${Math.round(totals.calories)} / ${t.calories} kcal</span></div>
+      <div class="card-head"><h2>Today's diary</h2><span class="pill ${totals.calories > t.calories + 100 ? 'warn' : 'good'}">${Math.round(totals.calories)} / ${t.calories} kcal</span>${todayEntries.length ? '<button class="btn btn-ghost btn-sm" data-action="open-save-meal">Save as meal</button>' : ''}</div>
       ${todayEntries.length ? meals.map(meal => {
         const entries = todayEntries.filter(entry => entry.meal === meal);
         if (!entries.length) return '';
@@ -4761,6 +4762,19 @@ function renderNutritionist() {
           </div>`).join('')}`;
       }).join('') : `<div class="empty">Nothing logged today. Add your first meal above — even an estimate is better than nothing.</div>`}
     </div>
+
+    ${(u.savedMeals || []).length ? `
+    <div class="card">
+      <div class="card-head"><div><h2>Saved meals</h2><p class="tiny muted" style="margin-top:4px">Your reusable combos, saved in this browser. Log one with a tap, then adjust what changed.</p></div></div>
+      ${u.savedMeals.map(meal => `
+        <div class="food-row">
+          <div><div class="food-name">${esc(meal.name)}</div><div class="food-macros">${esc(meal.meal)} · ${meal.items.length} item${meal.items.length === 1 ? '' : 's'} · ${Math.round(meal.items.reduce((sum, item) => sum + (Number(item.calories) || 0), 0))} kcal</div></div>
+          <div style="display:flex;gap:4px">
+            <button class="btn btn-xs btn-soft" data-action="log-saved-meal" data-id="${esc(meal.id)}">Log</button>
+            <button class="btn btn-xs btn-ghost" data-action="delete-saved-meal" data-id="${esc(meal.id)}" aria-label="Delete saved meal ${esc(meal.name)}">✕</button>
+          </div>
+        </div>`).join('')}
+    </div>` : ''}
 
     <div class="card">
       <div class="card-head"><div><h2>My foods</h2><p class="tiny muted" style="margin-top:4px">Your own serving sizes and label nutrition, saved in this browser.</p></div><button class="btn btn-secondary btn-sm" data-action="open-custom-food">+ Add custom food</button></div>
@@ -5929,6 +5943,7 @@ function renderModal() {
   else if (state.modal.type === 'workout-detail') root.innerHTML = workoutDetailModalMarkup();
   else if (state.modal.type === 'recipe') root.innerHTML = recipeModalMarkup();
   else if (state.modal.type === 'custom-food') root.innerHTML = customFoodModalMarkup();
+  else if (state.modal.type === 'save-meal') root.innerHTML = saveMealModalMarkup();
   else if (state.modal.type === 'photo-view') root.innerHTML = photoViewModalMarkup();
   else if (state.modal.type === 'backup-password') root.innerHTML = backupPasswordModalMarkup();
   if (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) {
@@ -5990,6 +6005,33 @@ function customFoodModalMarkup() {
           </div>
           <p class="tiny muted" style="margin-top:10px">Use the package label or your own recipe calculation. You can later log this food by its serving, grams, 100 g portions or ounces.</p>
           <div class="btn-row" style="margin-top:14px"><button class="btn btn-primary" type="submit">${editing ? 'Save changes' : 'Save custom food'}</button><button class="btn btn-ghost" type="button" data-action="close-modal">Cancel</button></div>
+        </form>
+      </div>
+    </div>`;
+}
+
+function saveMealModalMarkup() {
+  const u = state.user;
+  const todays = (u.logs.food || []).filter(entry => entry.date === today());
+  const mealsPresent = ['Breakfast', 'Lunch', 'Dinner', 'Snack'].filter(meal => todays.some(entry => entry.meal === meal));
+  const firstSlot = mealsPresent[0] || 'Snack';
+  return `
+    <div class="modal-overlay" data-action="close-modal">
+      <div class="modal" role="dialog" aria-modal="true" aria-label="Save meal">
+        <div class="modal-head">
+          <div>
+            <h2>Save as a meal</h2>
+            <p class="small muted">Bundle one of today's meals as a reusable combo. Logging it later takes one tap.</p>
+          </div>
+          <button class="icon-btn close" data-action="close-modal" aria-label="Close">✕</button>
+        </div>
+        <form data-form="save-meal">
+          <div class="form-grid">
+            <div class="field span-2"><label for="saved-meal-name">Meal name</label><input id="saved-meal-name" name="name" maxlength="60" placeholder="e.g. Usual breakfast" autocomplete="off" required></div>
+            <div class="field span-2"><label for="saved-meal-slot">Meal from today</label><select id="saved-meal-slot" name="meal">${mealsPresent.map(meal => `<option ${selected(meal, firstSlot)}>${meal}</option>`).join('')}</select></div>
+          </div>
+          <p class="tiny muted" style="margin-top:10px">Only the foods are saved, not the date - the combo stays until you delete it.</p>
+          <div class="btn-row" style="margin-top:14px"><button class="btn btn-primary" type="submit">Save meal</button><button class="btn btn-ghost" type="button" data-action="close-modal">Cancel</button></div>
         </form>
       </div>
     </div>`;
@@ -6452,6 +6494,7 @@ function recipeModalMarkup() {
 function normalizeUser(user) {
   user.logs = Object.assign(blankLogs(), user.logs || {});
   if (!Array.isArray(user.customFoods)) user.customFoods = [];
+  if (!Array.isArray(user.savedMeals)) user.savedMeals = [];
   if (!Array.isArray(user.groceryList)) user.groceryList = [];
   ['workouts', 'food', 'weights', 'measurements', 'sleep', 'symptoms'].forEach(key => {
     if (!Array.isArray(user.logs[key])) user.logs[key] = [];
@@ -6684,6 +6727,7 @@ function exportPayload() {
     profile: state.user.profile,
     logs: state.user.logs,
     customFoods: state.user.customFoods || [],
+    savedMeals: state.user.savedMeals || [],
     groceryList: state.user.groceryList || [],
     settings: state.user.settings
   };
@@ -6815,6 +6859,27 @@ function validateImportData(data) {
     return { id: id(entry.id, `import-custom-food-${index}`), ...validation.values };
   }, 500);
   if (new Set(customFoods.map(food => food.id)).size !== customFoods.length) throw new Error('Custom food IDs must be unique.');
+  const rawSavedMeals = data.savedMeals === undefined ? [] : data.savedMeals;
+  const savedMeals = list(rawSavedMeals, 'Saved meal', (entry, index) => {
+    const name = text(entry.name, 'Saved meal name', 60).trim();
+    if (!name) throw new Error('Saved meal name is required.');
+    return {
+      id: id(entry.id, `import-saved-meal-${index}`),
+      name,
+      meal: choice(entry.meal, 'Saved meal slot', ['Breakfast', 'Lunch', 'Dinner', 'Snack'], 'Snack'),
+      items: list(entry.items, 'Saved meal items', item => ({
+        name: text(item.name, 'Saved meal food', 120),
+        grams: number(item.grams, 'Saved meal grams', 0, 2000, 0),
+        portion: text(item.portion, 'Saved meal portion', 80),
+        calories: number(item.calories, 'Saved meal calories', 0, 10000, 0),
+        protein: number(item.protein, 'Saved meal protein', 0, 1000, 0),
+        carbs: number(item.carbs, 'Saved meal carbs', 0, 1000, 0),
+        fat: number(item.fat, 'Saved meal fat', 0, 1000, 0),
+        meal: choice(item.meal, 'Saved meal item slot', ['Breakfast', 'Lunch', 'Dinner', 'Snack'], 'Snack')
+      }), 50)
+    };
+  }, 200).filter(meal => meal.items.length > 0);
+  if (new Set(savedMeals.map(meal => meal.id)).size !== savedMeals.length) throw new Error('Saved meal IDs must be unique.');
   const weights = list(rawLogs.weights, 'Weight', entry => ({
     date: date(entry.date), kg: number(entry.kg, 'Weight', 30, 300)
   }));
@@ -6864,7 +6929,7 @@ function validateImportData(data) {
     trainerMode: choice(rawSettings.trainerMode, 'Trainer mode', ['gym', 'home'], 'gym'),
     units: choice(rawSettings.units, 'Units', ['metric', 'imperial'], 'metric')
   };
-  return { profile, logs: { workouts, food, weights, measurements, sleep, symptoms, hydration }, customFoods, settings };
+  return { profile, logs: { workouts, food, weights, measurements, sleep, symptoms, hydration }, customFoods, savedMeals, settings };
 }
 // <logic:end>
 
@@ -6891,6 +6956,7 @@ async function finishImport(parsed) {
   state.user.profile = { ...state.user.profile, ...cleaned.profile };
   state.user.logs = cleaned.logs;
   state.user.customFoods = cleaned.customFoods;
+  state.user.savedMeals = cleaned.savedMeals;
   state.user.settings = { ...state.user.settings, ...cleaned.settings };
   state.user.onboarded = true;
   saveUser();
@@ -7023,6 +7089,33 @@ document.addEventListener('click', event => {
       u.settings.reminderDismissed = today();
       saveUser();
       renderApp();
+      break;
+    }
+
+    case 'open-save-meal':
+      if (u && u.logs.food.some(entry => entry.date === today())) openModal({ type: 'save-meal' });
+      else toast('Log some food today first - a saved meal copies a meal from today.');
+      break;
+
+    case 'log-saved-meal': {
+      if (!u) break;
+      const meal = (u.savedMeals || []).find(item => item.id === trigger.dataset.id);
+      if (!meal) break;
+      meal.items.forEach(item => {
+        u.logs.food.push({ id: uid(), date: today(), meal: item.meal || meal.meal, name: item.name, grams: item.grams || 0, portion: item.portion || '', calories: item.calories || 0, protein: item.protein || 0, carbs: item.carbs || 0, fat: item.fat || 0 });
+      });
+      saveUser();
+      renderApp();
+      toast(`Logged "${meal.name}" - ${meal.items.length} item${meal.items.length === 1 ? '' : 's'} added to today's diary.`);
+      break;
+    }
+
+    case 'delete-saved-meal': {
+      if (!u) break;
+      u.savedMeals = (u.savedMeals || []).filter(item => item.id !== trigger.dataset.id);
+      saveUser();
+      renderApp();
+      toast('Saved meal removed.');
       break;
     }
 
@@ -7709,6 +7802,24 @@ document.addEventListener('submit', async event => {
       saveUser();
       renderApp();
       toast('Sleep logged.');
+      return;
+    }
+
+    if (type === 'save-meal') {
+      const name = String(formData.get('name') || '').trim();
+      const slot = String(formData.get('meal') || '');
+      if (!name) { toast('Give the meal a name.'); return; }
+      const items = u.logs.food
+        .filter(entry => entry.date === today() && entry.meal === slot)
+        .map(entry => ({ name: entry.name, grams: entry.grams || 0, portion: entry.portion || '', calories: entry.calories || 0, protein: entry.protein || 0, carbs: entry.carbs || 0, fat: entry.fat || 0, meal: entry.meal }));
+      if (!items.length) { toast('Nothing logged for that meal today.'); return; }
+      u.savedMeals = u.savedMeals || [];
+      if (u.savedMeals.length >= 200) { toast('Saved meals is full. Remove one before saving another.'); return; }
+      u.savedMeals.push({ id: uid(), name: name.slice(0, 60), meal: slot, items });
+      saveUser();
+      closeModal();
+      renderApp();
+      toast(`Saved "${name.slice(0, 60)}" - log it any day with one tap.`);
       return;
     }
 

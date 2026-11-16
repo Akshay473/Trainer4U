@@ -45,7 +45,7 @@ const memoryStorage = (() => {
   return { getItem: key => values.has(key) ? values.get(key) : null, setItem: (key, value) => values.set(key, String(value)) };
 })();
 const factory = new Function('ACTIVITY_MULTIPLIERS', 'GOAL_LABELS', 'today', 'dateOffset', 'localStorage', 'DB_KEY', 'SCHEMA_VERSION', 'uid',
-  code + '\nreturn { clamp, round, safeNum, sortedWeights, currentWeight, weightProgress, workoutsLast7, sleepAverage, loggedDays, bmiFor, bmiCategory, weightTrendPerWeek, weightTrendCategory, calorieDrift, proteinGap, sleepDeficit, macroTargets, baseTargets, getInsights, validateOnboarding, validateCustomFood, gramsForPortion, foodEntryFromFood, validateImportData, recipeMatchScore, groceryItemsForRecipe, groceryMerge, groceryText, weekStart, loadDB, esc, escapeHTML, FOOD_DB, filterFoodItems, APP_VERSION, userUnits, kgToLb, lbToKg, cmToIn, inToCm, weightUnit, lengthUnit, displayWeight, displayLength, parseWeightInput, parseLengthInput, heightDisplay, planRationale, isEncryptedExport, validateEncryptedEnvelope, EXERCISES, HOLD_EXERCISES, injuryAvoids, hasEquipment, equipmentScore, repRangeFor, swapMap, swapCandidates, applyPlanSwaps, sessionSetDone, workoutDraftFromSession, sessionBests, isPlateaued, workoutVolume, estimatedOneRepMax, personalRecords, newRecords, FORM_FIGURES, formatRestTime, planEditsFor, setPlanEdit, applyPlanEdits, filterWorkoutHistory, deloadActive, deloadWeight, consistencyCalendar, healthyWeightRange, lookRecommendations, formatBytes, photoCompareIds, photoBeforeAfter };\n');
+  code + '\nreturn { clamp, round, safeNum, sortedWeights, currentWeight, weightProgress, workoutsLast7, sleepAverage, loggedDays, bmiFor, bmiCategory, weightTrendPerWeek, weightTrendCategory, calorieDrift, proteinGap, sleepDeficit, macroTargets, baseTargets, getInsights, validateOnboarding, validateCustomFood, gramsForPortion, foodEntryFromFood, validateImportData, recipeMatchScore, groceryItemsForRecipe, groceryMerge, groceryText, weekStart, loadDB, esc, escapeHTML, FOOD_DB, filterFoodItems, APP_VERSION, userUnits, kgToLb, lbToKg, cmToIn, inToCm, weightUnit, lengthUnit, displayWeight, displayLength, parseWeightInput, parseLengthInput, heightDisplay, planRationale, isEncryptedExport, validateEncryptedEnvelope, EXERCISES, HOLD_EXERCISES, injuryAvoids, hasEquipment, equipmentScore, repRangeFor, swapMap, swapCandidates, applyPlanSwaps, sessionSetDone, workoutDraftFromSession, sessionBests, isPlateaued, workoutVolume, estimatedOneRepMax, personalRecords, newRecords, FORM_FIGURES, formatRestTime, planEditsFor, setPlanEdit, applyPlanEdits, filterWorkoutHistory, deloadActive, deloadWeight, consistencyCalendar, healthyWeightRange, lookRecommendations, formatBytes, photoCompareIds, photoBeforeAfter, weekReviewSummary };\n');
 const L = factory(ACTIVITY_MULTIPLIERS, GOAL_LABELS, todayMock, dateOffsetMock, memoryStorage, 'trainer4u_db_v2', 2, () => 'test-food-id');
 
 function mkUser(over = {}) {
@@ -719,6 +719,47 @@ const photoList = [{ id: 'a', ts: 100 }, { id: 'b', ts: 200 }, { id: 'c', ts: 30
 eq('before/after sorts oldest first regardless of tap order', JSON.stringify(L.photoBeforeAfter(photoList, ['c', 'a']).map(p => p.id)), JSON.stringify(['a', 'c']));
 check('before/after drops ids that are not in the library', L.photoBeforeAfter(photoList, ['zzz']).length === 0);
 check('before/after handles a single pick', L.photoBeforeAfter(photoList, ['b']).length === 1 && L.photoBeforeAfter(photoList, ['b'])[0].id === 'b');
+
+// --- Week in review (Sunday dashboard card) ---
+{
+  const sunday = new Date(2026, 10, 8); // Nov 8, 2026 is a Sunday
+  const monday = new Date(2026, 10, 9);
+  const wk = ['2026-11-02', '2026-11-03', '2026-11-04', '2026-11-05', '2026-11-06', '2026-11-07', '2026-11-08'];
+  const plan3 = { days: 3 };
+  eq('week review hidden on non-Sundays', L.weekReviewSummary(mkUser(), plan3, 2000, monday), null);
+  const busy = mkUser({
+    logs: {
+      food: wk.slice(0, 5).map(date => ({ date, meal: 'Lunch', name: 'Rice', grams: 300, calories: date === '2026-11-02' ? 2000 : 600, protein: 10, carbs: 60, fat: 4 })),
+      weights: [{ date: '2026-11-02', kg: 80 }, { date: '2026-11-08', kg: 79.5 }],
+      workouts: [{ date: '2026-11-02' }, { date: '2026-11-04' }, { date: '2026-11-06' }],
+      measurements: [], sleep: [{ date: '2026-11-03', hours: 7 }, { date: '2026-11-06', hours: 8 }], symptoms: [], hydration: {}
+    }
+  });
+  const r1 = L.weekReviewSummary(busy, plan3, 2000, sunday);
+  eq('week review counts distinct workout days', r1.workoutsDone, 3);
+  eq('week review carries planned sessions', r1.planned, 3);
+  eq('week review counts food days', r1.foodDays, 5);
+  eq('week review averages calories over logged days', r1.avgCalories, 880);
+  eq('week review passes the calorie target through', r1.targetCalories, 2000);
+  eq('week review computes weight change', r1.weightChange, -0.5);
+  eq('week review averages sleep', r1.sleepAvg, 7.5);
+  eq('week review praises a full training week', r1.message, 'Every planned session done. Nice work.');
+  const quiet = L.weekReviewSummary(mkUser(), plan3, 2000, sunday);
+  eq('quiet week review has no calorie average', quiet.avgCalories, null);
+  eq('quiet week review has no weight change', quiet.weightChange, null);
+  eq('quiet week review has no sleep average', quiet.sleepAvg, null);
+  eq('quiet week message invites a clean start', quiet.message, 'A quiet week. Tomorrow is a clean start - your plan is ready.');
+  const full = mkUser({
+    logs: {
+      food: wk.map(date => ({ date, meal: 'Lunch', name: 'Rice', grams: 300, calories: 600, protein: 10, carbs: 60, fat: 4 })),
+      weights: [], workouts: [{ date: '2026-11-02' }, { date: '2026-11-04' }, { date: '2026-11-06' }],
+      measurements: [], sleep: [], symptoms: [], hydration: {}
+    }
+  });
+  eq('both on point gets the rhythm message', L.weekReviewSummary(full, plan3, 2000, sunday).message, 'Training and food logging both on point. Keep the same rhythm next week.');
+  const noSessions = L.weekReviewSummary(mkUser({ logs: { food: [{ date: '2026-11-05', meal: 'Lunch', name: 'Rice', grams: 300, calories: 600, protein: 10, carbs: 60, fat: 4 }], weights: [], workouts: [], measurements: [], sleep: [], symptoms: [], hydration: {} } }), plan3, 2000, sunday);
+  eq('logged food but no sessions message', noSessions.message, 'Food logged but no sessions. One workout next week is a good start.');
+}
 
 console.log('');
 console.log('Passed: ' + passed + '  Failed: ' + failed + '  Blocks extracted: ' + blocks.length);

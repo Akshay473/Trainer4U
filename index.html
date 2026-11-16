@@ -10,7 +10,7 @@ Versions through commit c5b049e927cbf6f9edf84ab3bfba4a3482fd9e5c remain MIT-lice
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="description" content="Trainer4U — a private, local-only fitness coaching app for workouts, nutrition, recipes, wellness and progress.">
 <meta name="color-scheme" content="light dark">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-mj17q1tLnkO2c8JQRHeOsSY38kuuW5yMNPo2EP9fkDg='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-6e3FnSbE4vKvIvoQ0UZZBk2iiPFoBGohq5wO/FAUTBU='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'">
 <meta name="theme-color" content="#0F172A">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="#0F172A">
@@ -1035,7 +1035,7 @@ function toggleTheme() {
    --------------------------------------------------------------------------- */
 // <logic:start>
 // App build version. A test keeps this in sync with the service worker cache name.
-const APP_VERSION = '2026.11.16.11';
+const APP_VERSION = '2026.11.16.12';
 // <logic:end>
 
 // <logic:start>
@@ -2483,6 +2483,48 @@ function targets(user) {
   const { protein, fat, carbs } = macroTargets(calories, currentWeight(user) || Number(user.profile.weight) || 70, user.profile.goal, adjustments.protein || 0);
   return { ...base, calories, protein, carbs, fat, adjustments };
 }
+// <logic:start>
+/**
+ * Sunday week-in-review summary for the dashboard.
+ * @param {object} user - User state object with logs
+ * @param {object} plan - Built plan (uses plan.days as the scheduled session count)
+ * @param {number} targetCalories - Daily calorie target to compare the weekly average against
+ * @param {Date} now - Reference date; the card only appears on Sundays
+ * @returns {object|null} Review stats for the 7 days ending on `now`, or null on other days
+ */
+function weekReviewSummary(user, plan, targetCalories, now) {
+  const date = now || new Date();
+  if (date.getDay() !== 0) return null;
+  const days = [];
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(date.getFullYear(), date.getMonth(), date.getDate() - i);
+    days.push(isoDate(d));
+  }
+  const inWindow = entry => days.includes(entry.date);
+  const workoutsDone = new Set((user.logs.workouts || []).filter(inWindow).map(entry => entry.date)).size;
+  const planned = Math.max(0, Number(plan && plan.days) || 0);
+  const foodDays = new Set((user.logs.food || []).filter(inWindow).map(entry => entry.date)).size;
+  const dayCalories = days.map(day => (user.logs.food || []).filter(entry => entry.date === day).reduce((sum, entry) => sum + (Number(entry.calories) || 0), 0)).filter(value => value > 0);
+  const avgCalories = dayCalories.length ? Math.round(dayCalories.reduce((sum, value) => sum + value, 0) / dayCalories.length) : null;
+  const weights = (user.logs.weights || []).filter(inWindow).slice().sort((a, b) => (a.date < b.date ? -1 : 1));
+  const weightChange = weights.length >= 2 ? round(Number(weights[weights.length - 1].kg) - Number(weights[0].kg), 1) : null;
+  const sleeps = (user.logs.sleep || []).filter(inWindow).map(entry => Number(entry.hours) || 0).filter(hours => hours > 0);
+  const sleepAvg = sleeps.length ? round(sleeps.reduce((sum, hours) => sum + hours, 0) / sleeps.length, 1) : null;
+  let message;
+  if (planned > 0 && workoutsDone >= planned && foodDays >= 6) {
+    message = 'Training and food logging both on point. Keep the same rhythm next week.';
+  } else if (planned > 0 && workoutsDone >= planned) {
+    message = 'Every planned session done. Nice work.';
+  } else if (workoutsDone === 0 && foodDays === 0) {
+    message = 'A quiet week. Tomorrow is a clean start - your plan is ready.';
+  } else if (workoutsDone === 0) {
+    message = 'Food logged but no sessions. One workout next week is a good start.';
+  } else {
+    message = 'Some good days in there. Build on them next week.';
+  }
+  return { workoutsDone, planned, foodDays, avgCalories, targetCalories, weightChange, sleepAvg, message };
+}
+// <logic:end>
 
 /* ---------------------------------------------------------------------------
    Authentication screen
@@ -2643,6 +2685,25 @@ function syncHealthyRangeHint(form) {
   hint.textContent = healthyRangeHint(onboardingRangeProfile(form), userUnits(state.user));
 }
 
+function weekReviewCardMarkup(review, units) {
+  if (!review) return '';
+  const weightText = review.weightChange === null
+    ? '—'
+    : `${review.weightChange > 0 ? '+' : ''}${displayWeight(review.weightChange, units)} ${weightUnit(units)}`;
+  return `
+    <div class="card week-review">
+      <div class="card-head"><div><h2>Your week in review</h2><p class="tiny muted" style="margin-top:4px">Monday to today, at a glance. A fresh week starts tomorrow.</p></div><span class="pill">Sunday</span></div>
+      <div class="stats">
+        <div class="stat"><div class="stat-value">${review.workoutsDone}<small>/${review.planned}</small></div><div class="stat-label">Sessions done</div><div class="stat-sub">planned for the week</div></div>
+        <div class="stat"><div class="stat-value">${review.foodDays}<small>/7</small></div><div class="stat-label">Days food logged</div><div class="stat-sub">out of the last 7 days</div></div>
+        <div class="stat"><div class="stat-value">${review.avgCalories === null ? '—' : review.avgCalories}<small>kcal</small></div><div class="stat-label">Avg calories</div><div class="stat-sub">target ${review.targetCalories} kcal</div></div>
+        <div class="stat"><div class="stat-value">${weightText === '—' ? '—' : weightText.split(' ')[0]}<small>${weightText === '—' ? '' : weightUnit(units)}</small></div><div class="stat-label">Weight this week</div><div class="stat-sub">first to last weigh-in</div></div>
+        <div class="stat"><div class="stat-value">${review.sleepAvg === null ? '—' : review.sleepAvg}<small>h</small></div><div class="stat-label">Avg sleep</div><div class="stat-sub">from your sleep logs</div></div>
+      </div>
+      <p class="small muted" style="margin-top:12px">${esc(review.message)}</p>
+    </div>`;
+}
+
 function renderDashboard() {
   const u = state.user;
   const p = u.profile;
@@ -2708,6 +2769,8 @@ function renderDashboard() {
       <div class="stat"><div class="stat-value">${weekWorkouts}<small>/${p.daysPerWeek}</small></div><div class="stat-label">Workouts this week</div><div class="stat-sub">${plan.days} scheduled after coaching</div></div>
       <div class="stat"><div class="stat-value">${sleep === null ? '—' : round(sleep, 1)}<small>h</small></div><div class="stat-label">Sleep average</div><div class="stat-sub">${streak} day logging streak</div></div>
     </div>
+
+    ${weekReviewCardMarkup(weekReviewSummary(u, plan, t.calories, new Date()), units)}
 
     <div class="card">
       <div class="card-head"><h2>Quick log</h2><span class="pill">${prettyDate(today())}</span></div>

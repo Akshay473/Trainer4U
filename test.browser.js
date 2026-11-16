@@ -1,4 +1,4 @@
-/* global state, saveUser, renderApp, RECIPES, buildPlan, swapCandidates, dateOffset, today */
+/* global state, saveUser, renderApp, RECIPES, buildPlan, swapCandidates, dateOffset, today, uid */
 'use strict';
 const http = require('http');
 const fs = require('fs');
@@ -659,6 +659,31 @@ let browser;
   await tab(page, 'dashboard');
   check('dismissal persists across a reload', await page.evaluate(() => !document.querySelector('.reminder-banner')));
   await page.evaluate(() => { state.user.settings.reminders = false; state.user.profile.daysPerWeek = 3; saveUser(); renderApp(); });
+  // --- Week in review (Sunday dashboard card) ---
+  await tab(page, 'dashboard');
+  check('week review card stays hidden on weekdays', await page.evaluate(() => new Date().getDay() === 0 ? true : !document.querySelector('.week-review')));
+  await page.evaluate(() => {
+    state.user.logs.workouts.push({ id: uid(), date: dateOffset(-2), day: 'Push', exercises: [] });
+    state.user.logs.workouts.push({ id: uid(), date: dateOffset(-4), day: 'Pull', exercises: [] });
+    state.user.logs.food.push({ id: uid(), date: dateOffset(-1), meal: 'Lunch', name: 'Test meal', grams: 300, calories: 700, protein: 30, carbs: 70, fat: 20 });
+    state.user.logs.weights.push({ date: dateOffset(-6), kg: 80 });
+    state.user.logs.weights.push({ date: dateOffset(0), kg: 79.4 });
+    saveUser();
+    window.__origGetDay = Date.prototype.getDay;
+    Date.prototype.getDay = () => 0;
+    renderApp();
+  });
+  await page.waitForSelector('.week-review');
+  check('week review card appears on Sunday', true);
+  check('week review shows sessions and food days', await page.evaluate(() => {
+    const text = document.querySelector('.week-review').textContent;
+    return text.includes('/7') && text.includes('Days food logged') && text.includes('Sessions done');
+  }));
+  check('week review shows the weight change', await page.evaluate(() => document.querySelector('.week-review').textContent.includes('0.6')));
+  check('week review shows the weekly calorie average', await page.evaluate(() => document.querySelector('.week-review').textContent.includes('Avg calories')));
+  await axe(page, 'week in review card');
+  await page.evaluate(() => { Date.prototype.getDay = window.__origGetDay; delete window.__origGetDay; renderApp(); });
+  check('week review card hides again after Sunday', await page.evaluate(() => new Date().getDay() === 0 ? true : !document.querySelector('.week-review')));
 
   await signup.context.setOffline(false);
 

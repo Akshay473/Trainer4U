@@ -464,7 +464,7 @@ let browser;
     exported.customFoods[0].name === 'Homemade dal' && exported.logs.food.some(entry => entry.portion === '1.5 × 1 bowl'));
   await page.keyboard.press('Escape');
   exported.profile.name = payload;
-  exported.logs.food.push({ date: new Date().toISOString().slice(0, 10), meal: 'Snack', name: payload, grams: 100, calories: 10, protein: 1, carbs: 1, fat: 0 });
+  exported.logs.food.push({ date: await page.evaluate(() => today()), meal: 'Snack', name: payload, grams: 100, calories: 10, protein: 1, carbs: 1, fat: 0 });
   await page.evaluate(() => { window.__importXss = 0; });
   await page.click('[data-action="open-settings"]');
   await page.setInputFiles('#import-file', { name: 'import.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(exported)) });
@@ -619,6 +619,23 @@ let browser;
   check('quick sleep entry is stored', true);
   await tab(page, 'doctor');
   check('doctor sleep log shows the quick entry', await page.evaluate(() => document.querySelector('.main').textContent.includes('7.5')));
+
+  // --- Workout reminder (opt-in) ---
+  await tab(page, 'dashboard');
+  check('reminder banner hidden by default (opt-in)', await page.evaluate(() => !document.querySelector('.reminder-banner')));
+  await page.click('[data-action="open-settings"]');
+  await page.click('[data-action="toggle-reminders"]');
+  await page.waitForFunction(() => document.querySelectorAll('.toast').length === 0, null, { timeout: 5000 });
+  await page.click('.modal [data-action="close-modal"]');
+  await page.evaluate(() => { state.user.logs.workouts = state.user.logs.workouts.filter(w => w.date !== today()); state.user.profile.daysPerWeek = 7; saveUser(); renderApp(); });
+  check('reminder banner appears on an unlogged training day', await page.evaluate(() => !!document.querySelector('.reminder-banner')));
+  await page.click('[data-action="dismiss-reminder"]');
+  check('dismiss hides the banner for today', await page.evaluate(() => !document.querySelector('.reminder-banner')));
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  await page.waitForSelector('.main');
+  await tab(page, 'dashboard');
+  check('dismissal persists across a reload', await page.evaluate(() => !document.querySelector('.reminder-banner')));
+  await page.evaluate(() => { state.user.settings.reminders = false; state.user.profile.daysPerWeek = 3; saveUser(); renderApp(); });
 
   await signup.context.setOffline(false);
 

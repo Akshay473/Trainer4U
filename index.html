@@ -10,7 +10,7 @@ Versions through commit c5b049e927cbf6f9edf84ab3bfba4a3482fd9e5c remain MIT-lice
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="description" content="Trainer4U — a private, local-only fitness coaching app for workouts, nutrition, recipes, wellness and progress.">
 <meta name="color-scheme" content="light dark">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-t3iJ3lvFeI4YNMAgLXdFxNARM57o30girgd+/Cgc1GQ='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-cRfkrAp3eOYEmx/FuaWvxYH6sL7IJrtUlipnvLZzMTA='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'">
 <meta name="theme-color" content="#0F172A">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="#0F172A">
@@ -493,6 +493,10 @@ tr:last-child td { border-bottom: 0; }
 .photo-compare-grid figcaption { font-size: .76rem; color: var(--muted); margin-top: 5px; text-align: center; }
 .photo-view-img { max-width: 100%; max-height: 70vh; border-radius: 12px; object-fit: contain; }
 @media (max-width: 560px) { .photo-grid { grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); } }
+
+/* ---------- Workout reminder banner ---------- */
+.reminder-banner { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; border-left: 4px solid var(--accent); }
+.reminder-banner .btn-row { margin: 0; }
 
 /* ---------- Quick log (dashboard) ---------- */
 .quick-log { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
@@ -1031,7 +1035,7 @@ function toggleTheme() {
    --------------------------------------------------------------------------- */
 // <logic:start>
 // App build version. A test keeps this in sync with the service worker cache name.
-const APP_VERSION = '2026.11.15.9';
+const APP_VERSION = '2026.11.15.10';
 // <logic:end>
 
 // <logic:start>
@@ -2685,6 +2689,15 @@ function renderDashboard() {
         <div class="tiny muted" style="margin-top:7px">${changeText}${wp.target ? ` Target ${displayWeight(wp.target, units)} ${weightUnit(units)}.` : ' Add a target weight in your profile to track a goal.'} ${healthyRangeHint(p, units)}</div>
       </div>
     </section>
+
+    ${u.settings && u.settings.reminders === true && !todayPlan.rest && !u.logs.workouts.some(entry => entry.date === today()) && u.settings.reminderDismissed !== today() ? `
+    <div class="card reminder-banner" role="status">
+      <div>⏰ <b>Today's ${esc(todayPlan.label)} is still waiting.</b> <span class="muted small">A session today keeps your streak and the plan on track.</span></div>
+      <div class="btn-row">
+        <button class="btn btn-sm btn-primary" data-action="log-workout" data-day="${weekday}">Log workout</button>
+        <button class="btn btn-sm btn-ghost" data-action="dismiss-reminder">Remind me tomorrow</button>
+      </div>
+    </div>` : ''}
 
     <div class="stats">
       <div class="stat"><div class="stat-value">${displayWeight(wp.current, units)}<small>${weightUnit(units)}</small></div><div class="stat-label">Current weight</div><div class="stat-sub">${wp.change > 0 ? '+' : ''}${wpChangeDisp} ${weightUnit(units)}</div></div>
@@ -6011,6 +6024,12 @@ function settingsModalMarkup() {
           <button class="btn btn-sm" data-action="edit-profile">Edit profile</button>
         </div>
 
+        <div class="section-label">Reminders</div>
+        <div class="setting-row">
+          <div><b>Workout nudge</b><p>Show a dashboard reminder when today's planned workout is not logged yet.</p></div>
+          <button class="btn btn-sm" data-action="toggle-reminders">${u.settings && u.settings.reminders === true ? 'On' : 'Off'}</button>
+        </div>
+
         <div class="section-label">Your data</div>
         <div class="setting-row">
           <div><b>Export progress</b><p>Download profile, workouts, food, measurements and wellness notes as JSON.</p></div>
@@ -6983,6 +7002,27 @@ document.addEventListener('click', event => {
       renderModal();
       renderApp();
       toast(u.settings.units === 'imperial' ? 'Units set to pounds, feet and inches.' : 'Units set to kilograms and centimetres.');
+      break;
+    }
+
+    case 'toggle-reminders': {
+      if (!u) break;
+      u.settings = u.settings || {};
+      u.settings.reminders = !(u.settings.reminders === true);
+      u.settings.reminderDismissed = '';
+      saveUser();
+      renderModal();
+      renderApp();
+      toast(u.settings.reminders ? 'Workout nudge on. The dashboard will remind you on unlogged training days.' : 'Workout nudge off.');
+      break;
+    }
+
+    case 'dismiss-reminder': {
+      if (!u) break;
+      u.settings = u.settings || {};
+      u.settings.reminderDismissed = today();
+      saveUser();
+      renderApp();
       break;
     }
 
